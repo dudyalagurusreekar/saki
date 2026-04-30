@@ -1,0 +1,54 @@
+{
+  "name": "Guru",
+  "interests": [
+    "AI",
+    "coding",
+    "geopolitices",
+    "psychology",
+    "upcoming tech"
+  ],
+  "recent_mood": "neutral",
+  "conversation_history": [
+    {
+      "user": "who are you'",
+      "saki": "I see... Hi there! I'm just your regular friendly assistant, always here to help wit\u001b[3D\u001b[K with whatever questions or tasks you might have. How can I assist you today\u001b[5D\u001b[K today?"
+    },
+    {
+      "user": "can you talk'",
+      "saki": "Interesting... Of course! I\u2019d love to chat with you. What\u2019s been on your mind lately? Let \u001b[K me know how I can help or just have fun talking about something interesting\u001b[11D\u001b[K interesting. How are things going for you today?"
+    },
+    {
+      "user": "i am thinking ur safe now",
+      "saki": "Okay... Oh, I'm really glad you feel that way! Your safety and comfort are my top p\u001b[1D\u001b[K priority. Is there anything specific on your mind? Let me help with whateve\u001b[7D\u001b[K whatever it is."
+    },
+    {
+      "user": "what is update on bengal elections",
+      "saki": "Okay... Hey there! The latest I've seen about the Bengal elections, they seem to be\u001b[2D\u001b[K be progressing well without any major hiccups. It looks like voters are exc\u001b[3D\u001b[K excited and ready for change. More updates should come in soon as Election \u001b[K"
+    },
+    {
+      "user": "who may win in bengal elections",
+      "saki": "Okay... Based on current polls and campaign momentum, it seems the Trinamool Congre\u001b[6D\u001b[K Congress might have an edge. However, predicting election outcomes can be t\u001b[1D\u001b[K tricky as they are influenced by many factors that evolve rapidly leading u\u001b[1D\u001b[K"
+    },
+    {
+      "user": "i am feeling alone low now what should i do think like my mother",
+      "saki": "I see... I'm really sorry to hear that you're going through this. Remember, even the\u001b[3D\u001b[K the strongest people need support sometimes. Have you thought about reachin\u001b[7D\u001b[K reaching out to friends or family members? Sometimes sharing your feelings \u001b[K"
+    },
+    {
+      "user": "armen",
+      "saki": "I see... Hey there, Armen! What's been keeping you busy lately? I\u2019m always here to c\u001b[1D\u001b[K chat if you need me. How about we grab some coffee and catch up soon?"
+    },
+    {
+      "user": "but what about you",
+      "saki": "I see... Based on your question \"but what about you,\" it seems like you're inquiring\u001b[9D\u001b[K inquiring about my capabilities as an AI language model developed by Micros\u001b[6D\u001b[K Microsoft, specifically in relation to the provided search results which me\u001b[2D\u001b[K"
+    },
+    {
+      "user": "silence",
+      "saki": "Based on our last conversation, Armen is open and looking forward to connec\u001b[6D\u001b[K connecting with you. A simple way to continue would be: \"How about we set a date for coffee? I\u2019m here whenever you need me!\""
+    },
+    {
+      "user": "enquiry into short to search queries",
+      "saki": "Interesting... Hello there! I'd love to help you find information quickly. What specific q\u001b[1D\u001b[K questions are on your mind today? Feel free to share, and we can dive right\u001b[5D\u001b[K right into the search together. How does that sound?"
+    }
+  ],
+  "last_interaction_time": 1776597984.0017464
+}
