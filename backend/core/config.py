@@ -28,6 +28,8 @@ class Settings:
     # MEMORY CONTROL
     # -------------------------
     MAX_MEMORY = 10
+    MAX_DURABLE_MEMORIES = 300
+    MEMORY_CONTEXT_LIMIT = 6
 
     # -------------------------
     # API KEYS

@@ -31,7 +31,7 @@ app.add_middleware(
 # -------------------------
 # ROUTE REGISTRATION
 # -------------------------
-app.include_router(chat_router)
+app.include_router(chat_router, prefix="/api")
 app.include_router(memory_router, prefix="/api")
 app.include_router(system_router, prefix="/api")
 

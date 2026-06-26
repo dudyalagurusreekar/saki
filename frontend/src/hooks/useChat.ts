@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Message } from "@/lib/types";
 import { streamChat } from "@/lib/api";
-import { chatSchema } from "@/lib/validators";
 
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -40,11 +39,12 @@ export function useChat() {
           )
         );
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "An error occurred";
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === botMessage.id
-            ? { ...msg, content: "Error: " + err.message }
+            ? { ...msg, content: "Error: " + errorMsg }
             : msg
         )
       );

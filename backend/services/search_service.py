@@ -1,7 +1,5 @@
 from backend.core.config import settings
 from backend.core.privacy import make_safe_query, expand_query
-
-from backend.services.news import get_news
 from backend.services.search import multi_search
 
 def safe_search(user_input: str) -> list[str]:

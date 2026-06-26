@@ -1,15 +1,34 @@
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from backend.models.schemas import ChatRequest
-from pydantic import BaseModel
-
-from backend.services.ai_service import call_model, call_model_with, detect_intent
-from backend.services.memory_service import load_memory, update_memory
+from backend.services.ai_service import call_model, call_model_with, stream_model, detect_intent
+from backend.services.memory_service import build_memory_context, load_memory, update_memory
 from backend.services.search_service import safe_search
 from backend.services.news_service import get_safe_news
 from backend.core.config import settings
-from fastapi.responses import StreamingResponse
-from backend.services.ai_service import stream_model
+
 router = APIRouter()
+
+
+def build_saki_prompt(user_input: str, memory_context: str) -> str:
+    return f"""
+You are Saki, a warm local-first AI companion.
+
+Use durable memory only when it is relevant. Do not mention memory mechanics.
+
+Durable memory:
+{memory_context}
+
+Rules:
+- Be natural
+- Keep it short
+- Do not say "As an AI"
+- If memory is uncertain, ask gently instead of assuming
+
+User: {user_input}
+
+Answer:
+"""
 
 
 
@@ -19,6 +38,7 @@ def chat_stream(req: ChatRequest):
     user_input = req.message.strip()
 
     memory = load_memory()
+    memory_context = build_memory_context(memory, user_input, settings.MEMORY_CONTEXT_LIMIT)
     intent = detect_intent(user_input)
 
     # -------------------------
@@ -26,7 +46,10 @@ def chat_stream(req: ChatRequest):
     # -------------------------
     if intent == "emotional":
         prompt = f"""
-You are a caring, supportive friend.
+You are Saki, a caring, supportive local-first AI companion.
+
+Durable memory:
+{memory_context}
 
 User: {user_input}
 
@@ -41,22 +64,14 @@ Respond with empathy and warmth.
 Summarize these headlines clearly:
 
 {news_data}
+
+User context, if useful:
+{memory_context}
 """
         model = settings.MODEL_FAST
 
     else:
-        prompt = f"""
-You are a friendly AI assistant.
-
-Rules:
-- Be natural
-- Keep it short
-- Do not say "As an AI"
-
-User: {user_input}
-
-Answer:
-"""
+        prompt = build_saki_prompt(user_input, memory_context)
         model = settings.MODEL_FAST
 
     # -------------------------
@@ -111,6 +126,7 @@ def chat(req: ChatRequest):
     user_input = req.message.strip()
 
     memory = load_memory()
+    memory_context = build_memory_context(memory, user_input, settings.MEMORY_CONTEXT_LIMIT)
     intent = detect_intent(user_input)
 
     # -------------------------
@@ -118,7 +134,10 @@ def chat(req: ChatRequest):
     # -------------------------
     if intent == "emotional":
         prompt = f"""
-You are a caring, supportive friend.
+You are Saki, a caring, supportive local-first AI companion.
+
+Durable memory:
+{memory_context}
 
 User: {user_input}
 
@@ -136,6 +155,9 @@ Respond with empathy and warmth.
 Summarize these headlines clearly:
 
 {news_data}
+
+User context, if useful:
+{memory_context}
 """
         response = call_model(prompt)
 
@@ -143,18 +165,7 @@ Summarize these headlines clearly:
     # NORMAL CHAT / QUESTION
     # -------------------------
     else:
-        prompt = f"""
-You are a friendly AI assistant.
-
-Rules:
-- Be natural
-- Keep it short
-- Do not say "As an AI"
-
-User: {user_input}
-
-Answer:
-"""
+        prompt = build_saki_prompt(user_input, memory_context)
         response = call_model(prompt)
 
         # -------------------------

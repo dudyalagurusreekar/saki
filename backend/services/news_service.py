@@ -1,5 +1,4 @@
 from backend.services.news import get_news
-from backend.services.search import multi_search
 
 
 def get_safe_news():

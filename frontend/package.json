@@ -10,8 +10,9 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.99.2",
+    "@tanstack/react-query-devtools": "^5.100.6",
     "axios": "^1.15.2",
-    "next": "^9.3.3",
+    "next": "^15.0.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^4.3.6"

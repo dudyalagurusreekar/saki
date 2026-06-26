@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --accent-color: #6d28d9;
+  --accent-glow: rgba(109, 40, 217, 0.3);
+  --ai-msg-bg: rgba(255, 255, 255, 0.8);
+  --user-msg-bg: rgba(109, 40, 217, 0.9);
 }
 
 @theme inline {
@@ -12,15 +16,98 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, sans-serif;
+  overflow: hidden;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.glass-input:focus {
+  border-color: rgba(109, 40, 217, 0.8);
+  box-shadow: 0 0 15px var(--accent-glow);
+  outline: none;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.6);
+  }
+}
+
+.status-indicator {
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes wave-flow {
+  0% { transform: translate(-50%, 0) rotate(0deg); }
+  100% { transform: translate(-50%, 0) rotate(360deg); }
+}
+
+.animate-wave-slow { animation: wave-flow 35s infinite linear; }
+.animate-wave-medium { animation: wave-flow 25s infinite linear; }
+.animate-wave-fast { animation: wave-flow 15s infinite linear; }
+
+@keyframes fly-horizontal {
+  from { transform: translateX(110vw); }
+  to { transform: translateX(-20vw); }
+}
+.animate-fly-slow { animation: fly-horizontal 60s linear infinite; }
+.animate-fly-medium { animation: fly-horizontal 40s linear infinite; }
+.animate-fly-fast { animation: fly-horizontal 25s linear infinite; }
+
+@keyframes drift {
+  from { transform: translateX(-30vw); }
+  to { transform: translateX(120vw); }
+}
+.animate-drift-slow { animation: drift 100s linear infinite; }
+.animate-drift-medium { animation: drift 75s linear infinite; }
+.animate-drift-fast { animation: drift 50s linear infinite; }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
 }

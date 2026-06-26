@@ -1,4 +1,5 @@
-import subprocess
+import httpx
+import json
 from backend.core.config import settings
 
 
@@ -9,55 +10,54 @@ def call_model(prompt: str, model: str = None) -> str:
     model = model or settings.MODEL_FAST
 
     try:
-        result = subprocess.run(
-            ["ollama", "generate", model],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="ignore",
-            timeout=60
+        response = httpx.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": model,
+                "prompt": prompt,
+                "stream": False
+            },
+            timeout=60.0
         )
-
-        output = result.stdout.strip()
-
-        if not output:
-            return "Hmm... I didn't get that."
-
-        return output
-
+        if response.status_code == 200:
+            return response.json().get("response", "").strip()
+        else:
+            return f"Error: Ollama returned status code {response.status_code}"
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error calling Ollama API: {str(e)}"
 
 
 # -------------------------
 # CUSTOM MODEL CALL
 # -------------------------
 def call_model_with(model: str, prompt: str) -> str:
-    try:
-        result = subprocess.run(
-            ["ollama", "generate", model],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="ignore",
-            timeout=60
-        )
-        return result.stdout.strip()
-
-    except Exception as e:
-        return f"Error: {str(e)}"
+    return call_model(prompt, model)
 
 
 # -------------------------
-# STREAMING (TEMP SIMPLE)
+# STREAMING
 # -------------------------
 def stream_model(prompt: str, model: str = None):
     model = model or settings.MODEL_FAST
-    response = call_model(prompt, model)
-    for word in response.split():
-        yield word + " "
+    try:
+        with httpx.stream(
+            "POST",
+            "http://localhost:11434/api/generate",
+            json={
+                "model": model,
+                "prompt": prompt,
+                "stream": True
+            },
+            timeout=60.0
+        ) as r:
+            for line in r.iter_lines():
+                if line:
+                    data = json.loads(line)
+                    chunk = data.get("response", "")
+                    if chunk:
+                        yield chunk
+    except Exception as e:
+        yield f"Error in stream: {str(e)}"
 
 
 def detect_intent(user_input: str) -> str:
@@ -79,4 +79,4 @@ def detect_intent(user_input: str) -> str:
     ]):
         return "chat"
 
-    return "question"
+    return "question"

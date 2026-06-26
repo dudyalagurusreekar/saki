@@ -1,37 +1,24 @@
-export async function streamChat(messages: any[], onChunk: (text: string) => void) {
+export async function streamChat(message: string, onChunk: (text: string) => void) {
   const res = await fetch("http://localhost:8000/api/chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ message }),
   });
 
-  const reader = res.body?.getReader();
-  const decoder = new TextDecoder("utf-8");
+  if (!res.ok) {
+    onChunk("Error: " + res.statusText);
+    return;
+  }
 
-  if (!reader) return;
+  const data = await res.json();
+  const text = data.response || "";
 
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-
-    const lines = buffer.split("\n\n");
-    buffer = lines.pop() || "";
-
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        const json = line.replace("data: ", "");
-        try {
-          const parsed = JSON.parse(json);
-          const content = parsed.message?.content || "";
-          onChunk(content);
-        } catch {}
-      }
-    }
+  // simulate word-by-word streaming for UX
+  const words = text.split(" ");
+  for (let i = 0; i < words.length; i++) {
+    onChunk((i === 0 ? "" : " ") + words[i]);
+    await new Promise((r) => setTimeout(r, 30));
   }
 }
