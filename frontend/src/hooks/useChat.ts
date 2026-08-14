@@ -30,7 +30,7 @@ export function useChat() {
     setLoading(true);
 
     try {
-      await streamChat(trimmed, (chunk) => {
+      await streamChat(trimmed, [], (chunk) => {
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === botMessage.id

@@ -22,7 +22,7 @@ class Settings:
     # MODELS
     # -------------------------
     MODEL_FAST = "phi3"
-    MODEL_EMO = "nous-hermes2"
+    MODEL_EMO = "saki"
 
     # -------------------------
     # MEMORY CONTROL

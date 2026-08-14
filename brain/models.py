@@ -1,0 +1,66 @@
+from pydantic import BaseModel
+from typing import Dict
+
+class LanguageInfo(BaseModel):
+    code: str
+    name: str
+    native_name: str
+
+# Supported 50+ languages mapping
+SUPPORTED_LANGUAGES: Dict[str, LanguageInfo] = {
+    "af": LanguageInfo(code="af", name="Afrikaans", native_name="Afrikaans"),
+    "ar": LanguageInfo(code="ar", name="Arabic", native_name="العربية"),
+    "bg": LanguageInfo(code="bg", name="Bulgarian", native_name="Български"),
+    "bn": LanguageInfo(code="bn", name="Bengali", native_name="বাংলা"),
+    "ca": LanguageInfo(code="ca", name="Catalan", native_name="Català"),
+    "cs": LanguageInfo(code="cs", name="Czech", native_name="Čeština"),
+    "cy": LanguageInfo(code="cy", name="Welsh", native_name="Cymraeg"),
+    "da": LanguageInfo(code="da", name="Danish", native_name="Dansk"),
+    "de": LanguageInfo(code="de", name="German", native_name="Deutsch"),
+    "el": LanguageInfo(code="el", name="Greek", native_name="Ελληνικά"),
+    "en": LanguageInfo(code="en", name="English", native_name="English"),
+    "es": LanguageInfo(code="es", name="Spanish", native_name="Español"),
+    "et": LanguageInfo(code="et", name="Estonian", native_name="Eesti"),
+    "fa": LanguageInfo(code="fa", name="Persian", native_name="فارسی"),
+    "fi": LanguageInfo(code="fi", name="Finnish", native_name="Suomi"),
+    "fr": LanguageInfo(code="fr", name="French", native_name="Français"),
+    "gu": LanguageInfo(code="gu", name="Gujarati", native_name="ગુજરાતી"),
+    "he": LanguageInfo(code="he", name="Hebrew", native_name="עברית"),
+    "hi": LanguageInfo(code="hi", name="Hindi", native_name="हिन्दी"),
+    "hr": LanguageInfo(code="hr", name="Croatian", native_name="Hrvatski"),
+    "hu": LanguageInfo(code="hu", name="Hungarian", native_name="Magyar"),
+    "id": LanguageInfo(code="id", name="Indonesian", native_name="Bahasa Indonesia"),
+    "it": LanguageInfo(code="it", name="Italian", native_name="Italiano"),
+    "ja": LanguageInfo(code="ja", name="Japanese", native_name="日本語"),
+    "kn": LanguageInfo(code="kn", name="Kannada", native_name="ಕನ್ನಡ"),
+    "ko": LanguageInfo(code="ko", name="Korean", native_name="한국어"),
+    "lt": LanguageInfo(code="lt", name="Lithuanian", native_name="Lietuvių"),
+    "lv": LanguageInfo(code="lv", name="Latvian", native_name="Latviešu"),
+    "mk": LanguageInfo(code="mk", name="Macedonian", native_name="Македонски"),
+    "ml": LanguageInfo(code="ml", name="Malayalam", native_name="മലയാളം"),
+    "mr": LanguageInfo(code="mr", name="Marathi", native_name="मराठी"),
+    "ne": LanguageInfo(code="ne", name="Nepali", native_name="नेपाली"),
+    "nl": LanguageInfo(code="nl", name="Dutch", native_name="Nederlands"),
+    "no": LanguageInfo(code="no", name="Norwegian", native_name="Norsk"),
+    "pa": LanguageInfo(code="pa", name="Punjabi", native_name="ਪੰਜਾਬੀ"),
+    "pl": LanguageInfo(code="pl", name="Polish", native_name="Polski"),
+    "pt": LanguageInfo(code="pt", name="Portuguese", native_name="Português"),
+    "ro": LanguageInfo(code="ro", name="Romanian", native_name="Română"),
+    "ru": LanguageInfo(code="ru", name="Russian", native_name="Русский"),
+    "sk": LanguageInfo(code="sk", name="Slovak", native_name="Slovenčina"),
+    "sl": LanguageInfo(code="sl", name="Slovenian", native_name="Slovenščina"),
+    "so": LanguageInfo(code="so", name="Somali", native_name="Soomaali"),
+    "sq": LanguageInfo(code="sq", name="Albanian", native_name="Shqip"),
+    "sv": LanguageInfo(code="sv", name="Swedish", native_name="Svenska"),
+    "sw": LanguageInfo(code="sw", name="Swahili", native_name="Kiswahili"),
+    "ta": LanguageInfo(code="ta", name="Tamil", native_name="தமிழ்"),
+    "te": LanguageInfo(code="te", name="Telugu", native_name="తెలుగు"),
+    "th": LanguageInfo(code="th", name="Thai", native_name="ไทย"),
+    "tl": LanguageInfo(code="tl", name="Tagalog", native_name="Tagalog"),
+    "tr": LanguageInfo(code="tr", name="Turkish", native_name="Türkçe"),
+    "uk": LanguageInfo(code="uk", name="Ukrainian", native_name="Українська"),
+    "ur": LanguageInfo(code="ur", name="Urdu", native_name="اردو"),
+    "vi": LanguageInfo(code="vi", name="Vietnamese", native_name="Tiếng Việt"),
+    "zh-cn": LanguageInfo(code="zh-cn", name="Simplified Chinese", native_name="简体中文"),
+    "zh-tw": LanguageInfo(code="zh-tw", name="Traditional Chinese", native_name="繁體中文")
+}

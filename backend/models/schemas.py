@@ -1,7 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Any, Optional, List
 
-
 # -------------------------
 # CHAT REQUEST
 # -------------------------
@@ -9,26 +8,26 @@ class ChatRequest(BaseModel):
     """
     Input from frontend → backend
     """
-
     message: str = Field(
         ...,
         min_length=1,
         max_length=2000,
         description="User input message"
     )
-
+    attachments: Optional[List[dict]] = Field(
+        default=None,
+        description="Optional list of attachments"
+    )
 
 # -------------------------
-# CHAT RESPONSE (optional but recommended)
+# CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
     """
     Output from backend → frontend
     """
-
     response: str
     intent: Optional[str] = None
-
 
 # -------------------------
 # MEMORY RESPONSE
@@ -36,7 +35,6 @@ class ChatResponse(BaseModel):
 class MemoryItem(BaseModel):
     user: str
     saki: str
-
 
 class DurableMemoryItem(BaseModel):
     id: str
@@ -51,7 +49,6 @@ class DurableMemoryItem(BaseModel):
     source: str
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-
 class UserModel(BaseModel):
     learning_style: Optional[str] = None
     career_goal: Optional[str] = None
@@ -61,7 +58,6 @@ class UserModel(BaseModel):
     persistence: float = 0.0
     updated_at: Optional[float] = None
 
-
 class MemoryResponse(BaseModel):
     name: Optional[str] = None
     interests: List[str] = Field(default_factory=list)
@@ -70,13 +66,11 @@ class MemoryResponse(BaseModel):
     memories: List[DurableMemoryItem] = Field(default_factory=list)
     user_model: UserModel = Field(default_factory=UserModel)
 
-
 # -------------------------
 # SYSTEM / HEALTH RESPONSE
 # -------------------------
 class HealthResponse(BaseModel):
     status: str
-
 
 class ConfigResponse(BaseModel):
     privacy_mode: str
