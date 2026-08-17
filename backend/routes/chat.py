@@ -354,15 +354,18 @@ def chat_stream(req: ChatRequest):
                 user_input,
                 req.attachments
             )
-    # Computer & Development Subsystem Execution
+    # Computer, Development & Git/GitHub Subsystem Execution
     computer_obs_obj = None
     dev_task_obj = None
+    git_telemetry_obj = None
     if decision.action_decision and decision.action_decision.action == "CODING":
         from backend.services.computer_controller import ComputerController, ComputerAction
         from backend.services.development_capability import DevelopmentCapability
+        from backend.services.git_github_capability import GitGitHubCapability
         c_action = ComputerAction(action_type="INSPECT_WORKSPACE", target_path=r"c:\Users\gurus\work\saki")
         computer_obs_obj = ComputerController.execute_action(c_action)
         dev_task_obj = DevelopmentCapability.execute_development_task(user_input)
+        git_telemetry_obj = GitGitHubCapability.execute_action("GIT_STATUS")
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
     plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
@@ -493,15 +496,19 @@ def chat(req: ChatRequest):
         if evidence_prompt_block:
             prompt_input = prompt_input + evidence_prompt_block
 
-    # Computer & Development Subsystem Execution
+    # Computer, Development & Git/GitHub Subsystem Execution
     computer_obs_obj = None
     dev_task_obj = None
+    git_telemetry_obj = None
     if decision.action_decision and decision.action_decision.action == "CODING":
         from backend.services.computer_controller import ComputerController, ComputerAction
         from backend.services.development_capability import DevelopmentCapability
+        from backend.services.git_github_capability import GitGitHubCapability
         c_action = ComputerAction(action_type="INSPECT_WORKSPACE", target_path=r"c:\Users\gurus\work\saki")
         computer_obs_obj = ComputerController.execute_action(c_action)
         dev_task_obj = DevelopmentCapability.execute_development_task(user_input)
+        git_telemetry_obj = GitGitHubCapability.execute_action("GIT_STATUS")
+
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
 
@@ -609,7 +616,14 @@ def chat(req: ChatRequest):
             tests_run=dev_task_obj.tests_run,
             tests_passed=dev_task_obj.tests_passed,
             summary=dev_task_obj.summary
-        ) if dev_task_obj else None
+        ) if dev_task_obj else None,
+        git_github_telemetry=GitGitHubTelemetrySchema(
+            operation=git_telemetry_obj.operation,
+            repository=git_telemetry_obj.repository,
+            branch=git_telemetry_obj.branch,
+            status_state=git_telemetry_obj.status_state,
+            details=git_telemetry_obj.details
+        ) if git_telemetry_obj else None
     )
 
 

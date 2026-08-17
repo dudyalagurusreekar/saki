@@ -403,6 +403,42 @@ class DevelopmentTaskSchema(BaseModel):
 
 
 # -------------------------
+# GIT & GITHUB CAPABILITY SCHEMAS
+# -------------------------
+class GitStatusSchema(BaseModel):
+    current_branch: str = "main"
+    is_clean: bool = True
+    staged_files: List[str] = Field(default_factory=list)
+    modified_files: List[str] = Field(default_factory=list)
+    untracked_files: List[str] = Field(default_factory=list)
+
+
+class IssueSchema(BaseModel):
+    issue_number: int = 1
+    title: str = "Issue Title"
+    author: str = "user"
+    body_snippet: str = ""
+    status: str = "OPEN"
+
+
+class PullRequestSchema(BaseModel):
+    pr_number: int = 1
+    title: str = "Draft PR Title"
+    head_branch: str = "feature/task-1"
+    base_branch: str = "main"
+    is_draft: bool = True
+    state: str = "DRAFT"
+
+
+class GitGitHubTelemetrySchema(BaseModel):
+    operation: str = "GIT_STATUS"
+    repository: str = "dudyalagurusreekar/saki"
+    branch: str = "main"
+    status_state: str = "LOCAL_VERIFIED"
+    details: str = "Git operation executed successfully."
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -424,6 +460,8 @@ class ChatResponse(BaseModel):
     browser_observation: Optional[BrowserObservationSchema] = None
     computer_observation: Optional[ComputerObservationSchema] = None
     development_task: Optional[DevelopmentTaskSchema] = None
+    git_github_telemetry: Optional[GitGitHubTelemetrySchema] = None
+
 
 
 
