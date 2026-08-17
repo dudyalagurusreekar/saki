@@ -372,10 +372,12 @@ def chat_stream(req: ChatRequest):
         from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
         persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
 
-    # Personal Context Evaluation
+    # Personal Context & Unified Knowledge RAG Evaluation
     from backend.services.personal_context import PersonalContextEngine, AttentionPolicy
+    from backend.services.unified_knowledge import UnifiedKnowledgeEngine
     active_ctx_items = PersonalContextEngine.select_minimal_context(user_input)
     attn_mode = PersonalContextEngine.evaluate_proactive_attention(AttentionPolicy())
+    unified_rag_pkg = UnifiedKnowledgeEngine.retrieve_knowledge(user_input)
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
     plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
@@ -524,10 +526,12 @@ def chat(req: ChatRequest):
         from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
         persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
 
-    # Personal Context Evaluation
+    # Personal Context & Unified Knowledge RAG Evaluation
     from backend.services.personal_context import PersonalContextEngine, AttentionPolicy
+    from backend.services.unified_knowledge import UnifiedKnowledgeEngine
     active_ctx_items = PersonalContextEngine.select_minimal_context(user_input)
     attn_mode = PersonalContextEngine.evaluate_proactive_attention(AttentionPolicy())
+    unified_rag_pkg = UnifiedKnowledgeEngine.retrieve_knowledge(user_input)
 
 
 
@@ -661,7 +665,25 @@ def chat(req: ChatRequest):
             active_items_count=len(active_ctx_items),
             top_categories=list({i.category for i in active_ctx_items}),
             proactive_attention_mode=attn_mode
-        ) if active_ctx_items else None
+        ) if active_ctx_items else None,
+        unified_knowledge=UnifiedKnowledgePackageSchema(
+            total_candidates=unified_rag_pkg.total_candidates,
+            sources_queried=unified_rag_pkg.sources_queried,
+            has_conflicts=unified_rag_pkg.has_conflicts,
+            candidates=[
+                KnowledgeCandidateSchema(
+                    id=c.id,
+                    source_type=c.source_type,
+                    content=c.content,
+                    location=c.location,
+                    confidence=c.confidence,
+                    freshness=c.freshness,
+                    relevance_score=c.relevance_score,
+                    provenance_label=c.provenance_label
+                ) for c in unified_rag_pkg.candidates
+            ],
+            details=unified_rag_pkg.details
+        ) if unified_rag_pkg else None
     )
 
 

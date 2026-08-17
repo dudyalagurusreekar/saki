@@ -490,6 +490,28 @@ class PersonalContextTelemetrySchema(BaseModel):
 
 
 # -------------------------
+# UNIFIED KNOWLEDGE & RAG SCHEMAS
+# -------------------------
+class KnowledgeCandidateSchema(BaseModel):
+    id: str
+    source_type: str  # USER_MEMORY, PROJECT_STATE, LOCAL_DOCUMENT, CODE, GITHUB, WEB_SOURCE
+    content: str
+    location: str
+    confidence: str = "HIGH"
+    freshness: str = "CURRENT"
+    relevance_score: float = 1.0
+    provenance_label: str
+
+
+class UnifiedKnowledgePackageSchema(BaseModel):
+    total_candidates: int = 0
+    sources_queried: List[str] = Field(default_factory=list)
+    has_conflicts: bool = False
+    candidates: List[KnowledgeCandidateSchema] = Field(default_factory=list)
+    details: str = "Knowledge retrieval completed."
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -514,6 +536,8 @@ class ChatResponse(BaseModel):
     git_github_telemetry: Optional[GitGitHubTelemetrySchema] = None
     persistent_task: Optional[SakiTaskSchema] = None
     personal_context: Optional[PersonalContextTelemetrySchema] = None
+    unified_knowledge: Optional[UnifiedKnowledgePackageSchema] = None
+
 
 
 
