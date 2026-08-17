@@ -1,4 +1,14 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
 httpx
+requests
+python-multipart
+langdetect
+pypdf
+python-docx
+pillow
+psutil
+google-generativeai
+SpeechRecognition
+pytest

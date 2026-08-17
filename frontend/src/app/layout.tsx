@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     default: "Saki AI",
     template: "%s | Saki AI",
   },
-  description: "AI Assistant powered by FastAPI + Next.js",
+  description: "AI Close Companion powered by FastAPI + Next.js",
   applicationName: "Saki AI",
 };
 
@@ -43,10 +43,9 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
-      <body className="min-h-screen bg-background text-foreground antialiased">
+      <body className="h-screen w-screen overflow-hidden bg-slate-50 text-slate-900 antialiased">
         <Providers>
-          {/* Main App Wrapper */}
-          <div className="flex min-h-screen flex-col">
+          <div className="h-screen w-screen overflow-hidden flex flex-col">
             {children}
           </div>
         </Providers>

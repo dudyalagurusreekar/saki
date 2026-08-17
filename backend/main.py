@@ -44,13 +44,4 @@ def root():
         "status": "running",
         "service": "Saki AI",
         "version": "1.0"
-    }
-
-# -------------------------
-# HEALTH CHECK
-# -------------------------
-@app.get("/health")
-def health_check():
-    return {
-        "status": "ok"
-    }
+    }

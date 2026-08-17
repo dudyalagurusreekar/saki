@@ -3,7 +3,7 @@ import re
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from backend.core.config import settings
 
@@ -19,40 +19,15 @@ MEMORY_TYPES = {
     "EVENT",
     "INSIGHT",
     "PERSONALITY",
+    "DECISION",
+    "PROGRESS",
+    "PATTERN"
 }
 
 STOP_WORDS = {
-    "a",
-    "an",
-    "and",
-    "are",
-    "as",
-    "at",
-    "be",
-    "but",
-    "by",
-    "can",
-    "do",
-    "for",
-    "from",
-    "how",
-    "i",
-    "in",
-    "is",
-    "it",
-    "me",
-    "my",
-    "of",
-    "on",
-    "or",
-    "that",
-    "the",
-    "this",
-    "to",
-    "what",
-    "with",
-    "you",
-    "your",
+    "a", "an", "and", "are", "as", "at", "be", "but", "by", "can", "do",
+    "for", "from", "how", "i", "in", "is", "it", "me", "my", "of", "on",
+    "or", "that", "the", "this", "to", "what", "with", "you", "your"
 }
 
 
@@ -76,6 +51,28 @@ def _default_memory() -> dict[str, Any]:
             "persistence": 0.0,
             "updated_at": None,
         },
+        "awareness": {
+            "current_activity": "chatting",
+            "current_project": "Saki",
+            "conversation_mode": "casual",
+            "emotional_state": {
+                "emotion": "neutral",
+                "intensity": 0.3,
+                "confidence": 0.7,
+                "cause": "casual conversation",
+                "needs": ["friendly_interaction"]
+            },
+            "social_energy": {
+                "energy": 0.75,
+                "warmth": 0.85,
+                "playfulness": 0.60,
+                "seriousness": 0.45
+            },
+            "last_model": "phi3:latest",
+            "session_duration": 0,
+            "recent_topic": "general",
+            "consecutive_frustrations": 0
+        },
         "reflections": [],
         "last_interaction_time": None,
     }
@@ -95,7 +92,7 @@ def _canonical(text: str) -> str:
 
 def _clean_fragment(text: str) -> str:
     text = re.sub(r"\s+", " ", text.strip(" .,!?:;\"'"))
-    return text[:180]
+    return text[:240]
 
 
 def _memory_score(memory: dict[str, Any]) -> float:
@@ -159,6 +156,11 @@ def normalize_memory(memory: dict[str, Any] | None) -> dict[str, Any]:
         user_model.update(normalized["user_model"])
     normalized["user_model"] = user_model
 
+    awareness = _default_memory()["awareness"]
+    if isinstance(normalized.get("awareness"), dict):
+        awareness.update(normalized["awareness"])
+    normalized["awareness"] = awareness
+
     if normalized.get("name") and not any(
         m["type"] == "FACT" and "name is" in m["content"].lower()
         for m in normalized["memories"]
@@ -168,8 +170,8 @@ def normalize_memory(memory: dict[str, Any] | None) -> dict[str, Any]:
                 {
                     "type": "FACT",
                     "content": f"User's name is {normalized['name']}",
-                    "importance": 8,
-                    "confidence": 8,
+                    "importance": 9,
+                    "confidence": 9,
                     "source": "profile",
                 }
             )
@@ -198,23 +200,69 @@ def normalize_memory(memory: dict[str, Any] | None) -> dict[str, Any]:
     return normalized
 
 
+def get_categorized_memories(memory: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """
+    Groups durable memories into distinct functional categories:
+    - preferences
+    - facts
+    - projects
+    - patterns
+    - progress
+    - decisions
+    """
+    norm = normalize_memory(memory)
+    categorized = {
+        "preferences": [],
+        "facts": [],
+        "projects": [],
+        "patterns": [],
+        "progress": [],
+        "decisions": []
+    }
+    
+    for item in norm.get("memories", []):
+        m_type = item["type"]
+        if m_type == "PREFERENCE":
+            categorized["preferences"].append(item)
+        elif m_type in {"FACT", "SKILL", "GOAL"}:
+            categorized["facts"].append(item)
+        elif m_type == "PROJECT":
+            categorized["projects"].append(item)
+        elif m_type == "PATTERN":
+            categorized["patterns"].append(item)
+        elif m_type in {"PROGRESS", "INSIGHT"}:
+            categorized["progress"].append(item)
+        elif m_type == "DECISION":
+            categorized["decisions"].append(item)
+        else:
+            categorized["facts"].append(item)
+            
+    return categorized
+
+
 def load_memory() -> dict[str, Any]:
     if not MEMORY_PATH.exists():
         return _default_memory()
 
     with open(MEMORY_PATH, "r", encoding="utf-8") as f:
-        return normalize_memory(json.load(f))
+        data = json.load(f)
+        norm = normalize_memory(data)
+        norm["categorized"] = get_categorized_memories(norm)
+        return norm
 
 
 def save_memory(memory: dict[str, Any]) -> None:
     MEMORY_PATH.parent.mkdir(exist_ok=True)
     memory = normalize_memory(memory)
 
+    # Strip computed categorized before persisting
+    memory.pop("categorized", None)
+
     with open(MEMORY_PATH, "w", encoding="utf-8") as f:
         json.dump(memory, f, indent=2, ensure_ascii=True)
 
 
-def _candidate(memory_type: str, content: str, importance: int, confidence: float) -> dict[str, Any] | None:
+def _candidate(memory_type: str, content: str, importance: int, confidence: float, metadata: Optional[dict] = None) -> dict[str, Any] | None:
     content = _clean_fragment(content)
     if len(content) < 4:
         return None
@@ -228,7 +276,7 @@ def _candidate(memory_type: str, content: str, importance: int, confidence: floa
         "created_at": _now(),
         "last_seen": _now(),
         "source": "conversation",
-        "metadata": {},
+        "metadata": metadata or {},
     }
 
 
@@ -238,28 +286,58 @@ def extract_memories(user_input: str, response: str = "") -> list[dict[str, Any]
     candidates: list[dict[str, Any]] = []
 
     patterns = [
+        # Facts & Identity
         (r"\bmy name is ([a-zA-Z][a-zA-Z .'-]{1,60})", "FACT", "User's name is {}", 9, 9),
         (r"\bi am studying ([^.!?]{3,120})", "SKILL", "User studies {}", 8, 8),
         (r"\bi study ([^.!?]{3,120})", "SKILL", "User studies {}", 8, 8),
         (r"\bi am learning ([^.!?]{3,120})", "SKILL", "User is learning {}", 8, 8),
         (r"\bi want to ([^.!?]{3,120})", "GOAL", "User wants to {}", 8, 7),
         (r"\bmy goal is to ([^.!?]{3,120})", "GOAL", "User's goal is to {}", 9, 8),
+        
+        # Preferences
         (r"\bi prefer ([^.!?]{3,120})", "PREFERENCE", "User prefers {}", 7, 8),
         (r"\bi like ([^.!?]{3,120})", "PREFERENCE", "User likes {}", 6, 7),
+        (r"\bi dislike ([^.!?]{3,120})", "PREFERENCE", "User dislikes {}", 7, 8),
+        
+        # Projects
         (r"\bi am building ([^.!?]{3,120})", "PROJECT", "User is building {}", 9, 8),
         (r"\bi am working on ([^.!?]{3,120})", "PROJECT", "User is working on {}", 8, 8),
         (r"\bmy project is ([^.!?]{3,120})", "PROJECT", "User's project is {}", 9, 8),
+        
+        # Decisions
+        (r"\bwe decided to ([^.!?]{3,120})", "DECISION", "Decided to {}", 8, 8),
+        (r"\blet's use ([^.!?]{3,120}) instead of", "DECISION", "Decided to use {} instead", 8, 8),
+        (r"\bswitched to ([^.!?]{3,120})", "DECISION", "Switched architecture to {}", 8, 8),
+        
+        # Progress & Milestones
+        (r"\bfinally fixed ([^.!?]{3,120})", "PROGRESS", "Fixed {}", 8, 8),
+        (r"\bcompleted the ([^.!?]{3,120})", "PROGRESS", "Completed {}", 8, 8),
+        (r"\bimplemented ([^.!?]{3,120}) successfully", "PROGRESS", "Implemented {} successfully", 8, 8),
+        
+        # Patterns
+        (r"\bi always forget ([^.!?]{3,120})", "PATTERN", "User tends to forget {}", 7, 7),
+        (r"\bi keep struggling with ([^.!?]{3,120})", "PATTERN", "User struggles with {}", 7, 7),
     ]
 
     for pattern, memory_type, template, importance, confidence in patterns:
-        for match in re.finditer(pattern, lower, flags=re.IGNORECASE):
+        for match in re.finditer(pattern, text, flags=re.IGNORECASE):
             value = _clean_fragment(match.group(1))
             item = _candidate(memory_type, template.format(value), importance, confidence)
             if item:
                 candidates.append(item)
 
     if any(word in lower for word in ["saki", "local ai", "ai companion"]):
-        item = _candidate("PROJECT", "User is building Saki, a local-first AI companion", 10, 8)
+        item = _candidate("PROJECT", "User is building Saki, a local-first AI companion", 10, 9, {"project": "Saki"})
+        if item:
+            candidates.append(item)
+
+    if "guardian" in lower:
+        item = _candidate("PROJECT", "User is developing Guardian AI security assistant", 9, 8, {"project": "Guardian AI"})
+        if item:
+            candidates.append(item)
+
+    if "webaudit" in lower:
+        item = _candidate("PROJECT", "User is building WebAuditAI web analyzer", 9, 8, {"project": "WebAuditAI"})
         if item:
             candidates.append(item)
 
@@ -268,12 +346,15 @@ def extract_memories(user_input: str, response: str = "") -> list[dict[str, Any]
         if item:
             candidates.append(item)
 
-    if any(word in lower for word in ["sad", "lonely", "alone", "anxious", "stressed", "low"]):
-        item = _candidate("EVENT", "User expressed a low or lonely mood recently", 6, 6)
-        if item:
-            candidates.append(item)
+    # Filter out sensitive credentials or API keys per safety rules
+    filtered_candidates = []
+    sensitive_keywords = ["api_key", "apikey", "password", "secret", "bearer", "token", "credential", "private_key"]
+    for c in candidates:
+        content_lower = c["content"].lower()
+        if not any(sk in content_lower for sk in sensitive_keywords):
+            filtered_candidates.append(c)
 
-    return candidates
+    return filtered_candidates
 
 
 def _upsert_memory(memory: dict[str, Any], candidate: dict[str, Any]) -> None:
@@ -304,7 +385,7 @@ def _update_user_model(memory: dict[str, Any]) -> None:
     projects = [m for m in memories if m["type"] == "PROJECT"]
     goals = [m for m in memories if m["type"] == "GOAL"]
     skills = [m for m in memories if m["type"] == "SKILL"]
-    insights = [m for m in memories if m["type"] == "INSIGHT"]
+    insights = [m for m in memories if m["type"] in {"INSIGHT", "PROGRESS"}]
 
     model = memory.get("user_model") or {}
     model["project_focus"] = min(10.0, round(sum(m.get("frequency", 1) for m in projects) / 2, 1))
@@ -322,10 +403,10 @@ def _update_user_model(memory: dict[str, Any]) -> None:
     memory["user_model"] = model
 
 
-def update_memory(memory: dict[str, Any], user: str, response: str) -> None:
+def update_memory(memory: dict[str, Any], user: str, response: str, awareness_dict: Optional[dict] = None) -> None:
     memory = normalize_memory(memory)
     memory["conversation_history"].append({"user": user, "saki": response})
-    memory["conversation_history"] = memory["conversation_history"][-settings.MAX_MEMORY :]
+    memory["conversation_history"] = memory["conversation_history"][-settings.MAX_MEMORY:]
 
     for candidate in extract_memories(user, response):
         _upsert_memory(memory, candidate)
@@ -335,12 +416,39 @@ def update_memory(memory: dict[str, Any], user: str, response: str) -> None:
         key=lambda item: item.get("score", 0),
         reverse=True,
     )[: settings.MAX_DURABLE_MEMORIES]
+    
     memory["last_interaction_time"] = _now()
+    if awareness_dict:
+        memory["awareness"] = awareness_dict
+
     _update_user_model(memory)
     save_memory(memory)
 
 
-def retrieve_memories(memory: dict[str, Any], query: str, limit: int = 6) -> list[dict[str, Any]]:
+def retrieve_project_memories(memory: dict[str, Any], project_name: str) -> list[dict[str, Any]]:
+    """Retrieves memories strictly relevant to an active project."""
+    norm = normalize_memory(memory)
+    proj_lower = project_name.lower()
+    results = []
+    
+    for item in norm.get("memories", []):
+        content_lower = item["content"].lower()
+        if proj_lower in content_lower or (item.get("metadata", {}).get("project", "").lower() == proj_lower):
+            results.append(item)
+            
+    return results
+
+
+def retrieve_memories(
+    memory: dict[str, Any],
+    query: str,
+    limit: int = 6,
+    active_mode: str = "casual",
+    active_project: Optional[str] = None
+) -> list[dict[str, Any]]:
+    """
+    Intelligently retrieves memories based on query tokens, active mode, and active project.
+    """
     memory = normalize_memory(memory)
     query_tokens = _tokenize(query)
     ranked: list[tuple[float, dict[str, Any]]] = []
@@ -348,25 +456,48 @@ def retrieve_memories(memory: dict[str, Any], query: str, limit: int = 6) -> lis
     for item in memory.get("memories", []):
         content_tokens = _tokenize(item["content"])
         overlap = len(query_tokens & content_tokens)
-        type_boost = 2 if item["type"] in {"GOAL", "PROJECT", "PREFERENCE", "INSIGHT"} else 0
+        
+        type_boost = 0
+        if active_mode in ["builder", "thinking"] and item["type"] in {"PROJECT", "DECISION", "SKILL"}:
+            type_boost = 3
+        elif active_mode == "support" and item["type"] in {"PREFERENCE", "PATTERN", "INSIGHT"}:
+            type_boost = 3
+        elif item["type"] in {"GOAL", "PROJECT", "PREFERENCE"}:
+            type_boost = 1
+
+        # Project boost
+        if active_project and active_project.lower() in item["content"].lower():
+            type_boost += 4
+
         relevance = overlap * 5 + float(item.get("score", 0)) * 0.25 + type_boost
 
-        if overlap or item["type"] in {"GOAL", "PROJECT", "PREFERENCE"}:
+        if overlap or type_boost > 0:
             ranked.append((relevance, item))
 
     ranked.sort(key=lambda pair: pair[0], reverse=True)
     return [item for _, item in ranked[:limit]]
 
 
-def build_memory_context(memory: dict[str, Any], query: str, limit: int = 6) -> str:
-    relevant = retrieve_memories(memory, query, limit=limit)
+def build_smart_memory_context(
+    memory: dict[str, Any],
+    query: str,
+    limit: int = 6,
+    active_mode: str = "casual",
+    active_project: Optional[str] = None
+) -> str:
+    """
+    Constructs a concise, categorized memory summary for prompt injection.
+    """
+    relevant = retrieve_memories(memory, query, limit=limit, active_mode=active_mode, active_project=active_project)
     if not relevant:
-        return "No durable memories are relevant yet."
+        return ""
 
     lines = []
     for item in relevant:
-        lines.append(
-            f"- {item['type']}: {item['content']} "
-            f"(importance {item['importance']}, confidence {item['confidence']})"
-        )
+        lines.append(f"- [{item['type']}] {item['content']}")
     return "\n".join(lines)
+
+
+def build_memory_context(memory: dict[str, Any], query: str, limit: int = 6) -> str:
+    """Backward-compatible wrapper."""
+    return build_smart_memory_context(memory, query, limit=limit)

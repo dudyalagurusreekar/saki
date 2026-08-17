@@ -1,0 +1,9 @@
+{
+  "theme": "clear_sky",
+  "reduced_animation": false,
+  "personality_warmth": 0.85,
+  "personality_playfulness": 0.6,
+  "personality_verbosity": 0.6,
+  "privacy_mode": "MEDIUM",
+  "auto_keep_alive": "5m"
+}

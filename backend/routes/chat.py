@@ -1,15 +1,218 @@
-from fastapi import APIRouter, UploadFile, File
-from fastapi.responses import StreamingResponse
-from backend.models.schemas import ChatRequest
-from backend.services.ai_service import call_model, call_model_with, stream_model, detect_intent
-from backend.services.memory_service import build_memory_context, load_memory, update_memory
+import os
+import json
+import re
+import time
+import uuid
+from typing import Optional, List, Dict, Any
+from fastapi import APIRouter, UploadFile, File, Query
+from fastapi.responses import StreamingResponse, JSONResponse
+from backend.models.schemas import ChatRequest, ChatResponse, ResponsePlanSchema, EvaluationResultSchema
+from backend.services.ai_service import call_model, stream_model, unload_model
+from backend.services.orchestrator import SakiModelOrchestrator, RoutingDecision
+from backend.services.emotional_intelligence import SakiAwareness
+from backend.services.memory_service import build_smart_memory_context, load_memory, update_memory
+from backend.services.response_planner import plan_response, ResponsePlan
+from backend.services.response_evaluator import evaluate_response, clean_speaker_tags
+from backend.services.learning_service import detect_user_correction
 from backend.services.search_service import safe_search
-from backend.services.news_service import get_safe_news
+from backend.services.model_manager import model_manager
 from backend.core.config import settings
+from backend.core.saki_persona import build_saki_system_prompt
 
 router = APIRouter()
 
+CONVERSATIONS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "conversations.json")
 
+
+def _load_conversations_data() -> Dict[str, Any]:
+    if os.path.exists(CONVERSATIONS_FILE):
+        try:
+            with open(CONVERSATIONS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+
+    # Initialize from memory.json history if conversations.json doesn't exist
+    memory = load_memory()
+    history = memory.get("conversation_history", [])
+    default_id = "default-session"
+    
+    init_messages = []
+    for h in history:
+        if isinstance(h, dict):
+            if h.get("user"):
+                init_messages.append({"role": "user", "content": h["user"]})
+            if h.get("saki"):
+                init_messages.append({"role": "assistant", "content": h["saki"]})
+
+    if not init_messages:
+        init_messages = [
+            {"role": "assistant", "content": "Hey! Good to see you. What are we building or exploring today? 🌸"}
+        ]
+
+    init_convs = {
+        "active_id": default_id,
+        "conversations": {
+            default_id: {
+                "id": default_id,
+                "title": "Welcome to Saki",
+                "created_at": time.time() - 3600,
+                "updated_at": time.time(),
+                "messages": init_messages
+            }
+        }
+    }
+
+    _save_conversations_data(init_convs)
+    return init_convs
+
+
+def _save_conversations_data(data: Dict[str, Any]) -> None:
+    os.makedirs(os.path.dirname(CONVERSATIONS_FILE), exist_ok=True)
+    with open(CONVERSATIONS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+
+def append_message_to_conversation(conv_id: str, user_msg: str, assistant_msg: str, attachments: Optional[List[dict]] = None):
+    data = _load_conversations_data()
+    convs = data.get("conversations", {})
+    
+    if conv_id not in convs:
+        title = user_msg[:30] + ("..." if len(user_msg) > 30 else "")
+        convs[conv_id] = {
+            "id": conv_id,
+            "title": title or "New Conversation",
+            "created_at": time.time(),
+            "updated_at": time.time(),
+            "messages": []
+        }
+    
+    conv = convs[conv_id]
+    conv["updated_at"] = time.time()
+    if user_msg:
+        conv["messages"].append({"role": "user", "content": user_msg, "attachments": attachments or []})
+    if assistant_msg:
+        conv["messages"].append({"role": "assistant", "content": assistant_msg})
+        
+    data["active_id"] = conv_id
+    _save_conversations_data(data)
+
+
+# -------------------------
+# CONVERSATION MANAGEMENT ENDPOINTS
+# -------------------------
+@router.get("/conversations")
+def get_conversations():
+    data = _load_conversations_data()
+    convs = list(data.get("conversations", {}).values())
+    convs.sort(key=lambda c: c.get("updated_at", 0), reverse=True)
+
+    now = time.time()
+    today_list = []
+    yesterday_list = []
+    older_list = []
+
+    for c in convs:
+        up = c.get("updated_at", now)
+        diff_hours = (now - up) / 3600.0
+        summary = {
+            "id": c.get("id"),
+            "title": c.get("title", "Conversation"),
+            "updated_at": up,
+            "message_count": len(c.get("messages", [])),
+            "preview": c.get("messages", [])[-1]["content"][:60] if c.get("messages") else ""
+        }
+        if diff_hours < 24:
+            today_list.append(summary)
+        elif diff_hours < 48:
+            yesterday_list.append(summary)
+        else:
+            older_list.append(summary)
+
+    return {
+        "active_id": data.get("active_id", "default-session"),
+        "today": today_list,
+        "yesterday": yesterday_list,
+        "older": older_list
+    }
+
+
+@router.get("/conversations/search")
+def search_conversations(q: str = Query(..., min_length=1)):
+    data = _load_conversations_data()
+    q_lower = q.lower().strip()
+    results = []
+
+    for c in data.get("conversations", {}).values():
+        title = c.get("title", "")
+        matches = title.lower().find(q_lower) != -1
+        matching_snippet = title
+
+        if not matches:
+            for m in c.get("messages", []):
+                content = m.get("content", "")
+                if q_lower in content.lower():
+                    matches = True
+                    idx = content.lower().find(q_lower)
+                    start = max(0, idx - 20)
+                    matching_snippet = "..." + content[start:start + 60] + "..."
+                    break
+
+        if matches:
+            results.append({
+                "id": c.get("id"),
+                "title": title,
+                "updated_at": c.get("updated_at"),
+                "snippet": matching_snippet
+            })
+
+    return {"query": q, "results": results}
+
+
+@router.get("/conversations/{conv_id}")
+def get_conversation_history(conv_id: str):
+    data = _load_conversations_data()
+    conv = data.get("conversations", {}).get(conv_id)
+    if not conv:
+        return JSONResponse(status_code=404, content={"error": "Conversation not found"})
+    return conv
+
+
+@router.post("/conversations/new")
+def create_new_conversation():
+    data = _load_conversations_data()
+    new_id = f"conv-{uuid.uuid4().hex[:8]}"
+    new_conv = {
+        "id": new_id,
+        "title": "New Conversation",
+        "created_at": time.time(),
+        "updated_at": time.time(),
+        "messages": [
+            {"role": "assistant", "content": "Hey! Good to see you. What are we building or exploring today? 🌸"}
+        ]
+    }
+    data.setdefault("conversations", {})[new_id] = new_conv
+    data["active_id"] = new_id
+    _save_conversations_data(data)
+    return new_conv
+
+
+@router.delete("/conversations/{conv_id}")
+def delete_conversation(conv_id: str):
+    data = _load_conversations_data()
+    convs = data.get("conversations", {})
+    if conv_id in convs:
+        del convs[conv_id]
+        if data.get("active_id") == conv_id:
+            data["active_id"] = next(iter(convs.keys())) if convs else "default-session"
+        _save_conversations_data(data)
+        return {"deleted": True, "id": conv_id}
+    return JSONResponse(status_code=404, content={"error": "Conversation not found"})
+
+
+# -------------------------
+# CHAT PIPELINE HELPERS
+# -------------------------
 def get_attachment_context(req: ChatRequest) -> str:
     """Helper to analyze uploaded attachments and construct a descriptive text block for the LLM."""
     if not req.attachments:
@@ -39,281 +242,274 @@ def format_history_context(history: list) -> str:
     """Compile recent conversation turns into context for the prompt."""
     if not history:
         return ""
-    formatted = "\nRecent Conversation History:\n"
-    for turn in history[-6:]:  # last 6 turns (user + saki pairs)
-        formatted += f"- User: {turn.get('user')}\n- Saki: {turn.get('saki')}\n"
+    formatted = "Recent Conversation:\n"
+    for turn in history[-6:]:
+        user_turn = turn.get('user', '')
+        saki_turn = turn.get('saki', '')
+        if user_turn:
+            formatted += f"- User: {user_turn}\n"
+        if saki_turn:
+            formatted += f"- Saki: {saki_turn}\n"
     return formatted
 
 
 def is_helpless_response(text: str) -> bool:
-    """Check if the model response is empty, too short, or indicates it cannot answer."""
+    """Check if the model response indicates it cannot answer."""
     if not text or len(text.strip()) < 15:
         return True
     text_lower = text.lower()
     helpless_phrases = [
         "i don't know", "i do not know", "not sure", "cannot answer", 
         "unable to answer", "no information available", "apologize, but i cannot",
-        "don't have access", "i'm not sure", "cannot find", "sorry, but i don't",
-        "apologize, i cannot"
+        "don't have access", "i'm not sure", "cannot find", "sorry, but i don't"
     ]
     return any(phrase in text_lower for phrase in helpless_phrases)
 
 
-def clean_speaker_prefix(text: str) -> str:
-    """Strip redundant speaker names or colons from the beginning of the text."""
-    if not text:
-        return ""
-    text_strip = text.strip()
-    text_lower = text_strip.lower()
-    
-    # Check for "saki:" prefix
-    if text_lower.startswith("saki:"):
-        return text_strip[5:].strip()
-    # Check for "saki -" prefix
-    if text_lower.startswith("saki -"):
-        return text_strip[6:].strip()
-    # Check for "saki " prefix
-    if text_lower.startswith("saki "):
-        return text_strip[5:].strip()
-    # Check if it is exactly "saki"
-    if text_lower == "saki":
-        return ""
-        
-    return text_strip
+def build_orchestrated_prompt(
+    decision: RoutingDecision,
+    plan: ResponsePlan,
+    prompt_input: str,
+    memory_context: str,
+    history_context: str
+) -> str:
+    emotional_guidance = (
+        f"Detected Emotion: {decision.detected_emotion} (intensity {decision.emotional_state.intensity})\n"
+        f"Cause: {decision.emotional_state.cause}\n"
+        f"User Needs: {', '.join(decision.emotional_state.needs)}\n\n"
+        f"{plan.directive_prompt}"
+    )
+
+    system_prompt = build_saki_system_prompt(
+        mode=decision.conversation_mode,
+        energy=decision.social_energy.energy,
+        warmth=decision.social_energy.warmth,
+        playfulness=decision.social_energy.playfulness,
+        seriousness=decision.social_energy.seriousness,
+        consecutive_frustrations=decision.awareness.consecutive_frustrations if decision.awareness else 0,
+        is_breakthrough=(decision.detected_emotion == "celebrating"),
+        active_project=decision.awareness.current_project if decision.awareness else None,
+        memory_context=memory_context,
+        history_context=history_context,
+        emotional_guidance=emotional_guidance
+    )
+
+    return f"{system_prompt}\n\nUser: {prompt_input}\nSaki:"
 
 
-def build_saki_prompt(user_input: str, memory_context: str, history_context: str) -> str:
-    return f"""
-You are Saki, a warm local-first AI companion.
-
-Use durable memory only when it is relevant. Do not mention memory mechanics.
-
-Durable memory:
-{memory_context}
-{history_context}
-
-Rules:
-- Be natural
-- Keep it short
-- Do not say "As an AI"
-- If memory is uncertain, ask gently instead of assuming
-
-User: {user_input}
-
-Answer:
-"""
-
-
+# -------------------------
+# STREAMING AND STANDARD CHAT
+# -------------------------
 @router.post("/chat/stream")
 def chat_stream(req: ChatRequest):
     user_input = req.message.strip()
-    # Inject attachments details if present
+    conv_id = req.conversation_id or "default-session"
     attachment_context = get_attachment_context(req)
     prompt_input = user_input + attachment_context
 
     memory = load_memory()
-    memory_context = build_memory_context(memory, user_input, settings.MEMORY_CONTEXT_LIMIT)
     history_context = format_history_context(memory.get("conversation_history", []))
-    intent = detect_intent(user_input)
 
-    # -------------------------
-    # BUILD PROMPT
-    # -------------------------
-    if intent == "emotional":
-        prompt = f"""
-You are Saki, a caring, supportive local-first AI companion.
+    # Check for user correction (Learning Loop)
+    correction = detect_user_correction(user_input)
+    if correction:
+        from backend.services.memory_service import _upsert_memory
+        _upsert_memory(memory, correction)
 
-Durable memory:
-{memory_context}
-{history_context}
+    prev_awareness_raw = memory.get("awareness")
+    prev_awareness = SakiAwareness(**prev_awareness_raw) if prev_awareness_raw else None
 
-User: {prompt_input}
+    # Model Orchestration
+    decision = SakiModelOrchestrator.classify_request(
+        query=user_input,
+        attachments=req.attachments,
+        previous_awareness=prev_awareness,
+        memory_data=memory
+    )
 
-Respond with empathy and warmth, and support the user based on the conversation history.
-"""
-        model = settings.MODEL_EMO
+    user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
+    plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
 
-    elif intent == "news":
-        news_data = get_safe_news()
+    memory_context = build_smart_memory_context(
+        memory=memory,
+        query=user_input,
+        limit=settings.MEMORY_CONTEXT_LIMIT,
+        active_mode=decision.conversation_mode,
+        active_project=decision.awareness.current_project if decision.awareness else None
+    )
 
-        prompt = f"""
-Summarize these headlines clearly:
+    prompt = build_orchestrated_prompt(decision, plan, prompt_input, memory_context, history_context)
+    selected_model = decision.selected_model
 
-{news_data}
+    # Image attachments for Gemma 3
+    image_paths = []
+    if req.attachments:
+        for att in req.attachments:
+            if att.get("path") and (
+                att.get("type") == "image" 
+                or str(att.get("name", "")).lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"))
+            ):
+                image_paths.append(att["path"])
 
-User: {prompt_input}
-
-User context, if useful:
-{memory_context}
-{history_context}
-"""
-        model = settings.MODEL_FAST
-
-    else:
-        prompt = build_saki_prompt(prompt_input, memory_context, history_context)
-        model = settings.MODEL_FAST
-
-    # -------------------------
-    # STREAM GENERATOR
-    # -------------------------
     def generate():
         full_response = ""
-        buffered_text = ""
-        stripped_prefix = False
+        prefix_buffer = ""
+        prefix_checked = False
 
-        for chunk in stream_model(prompt, model=model):
+        for chunk in stream_model(
+            prompt, 
+            model=selected_model, 
+            keep_alive=settings.MODEL_KEEP_ALIVE_SESSION,
+            images=image_paths if image_paths else None
+        ):
             full_response += chunk
             
-            if not stripped_prefix:
-                buffered_text += chunk
-                buff_lower = buffered_text.lower().strip()
-                
-                if buff_lower.startswith("saki"):
-                    if ":" in buffered_text:
-                        parts = buffered_text.split(":", 1)
-                        buffered_text = parts[1].lstrip()
-                        stripped_prefix = True
-                        if buffered_text:
-                            yield buffered_text
-                            buffered_text = ""
-                    elif len(buffered_text) > 12:
-                        if buff_lower.startswith("saki "):
-                            buffered_text = buffered_text[5:].lstrip()
-                        stripped_prefix = True
-                        yield buffered_text
-                        buffered_text = ""
-                else:
-                    stripped_prefix = True
-                    yield buffered_text
-                    buffered_text = ""
+            # Initial speaker prefix filter (buffer first ~15 chars to strip Saki:, Assistant:, etc.)
+            if not prefix_checked:
+                prefix_buffer += chunk
+                if len(prefix_buffer) > 20 or "\n" in prefix_buffer or " " in prefix_buffer:
+                    cleaned_buffer = re.sub(r"^(?:saki|assistant|ai|\[saki\]|\[assistant\])\s*[-:：]?\s*", "", prefix_buffer, flags=re.IGNORECASE)
+                    prefix_checked = True
+                    if cleaned_buffer:
+                        yield cleaned_buffer
             else:
                 yield chunk
 
-        # Flush buffer if we finished early and didn't strip
-        if not stripped_prefix and buffered_text:
-            clean_buf = buffered_text.strip()
-            if clean_buf.lower() != "saki" and not clean_buf.lower().startswith("saki:"):
-                yield buffered_text
+        if not prefix_checked and prefix_buffer:
+            cleaned_buffer = re.sub(r"^(?:saki|assistant|ai|\[saki\]|\[assistant\])\s*[-:：]?\s*", "", prefix_buffer, flags=re.IGNORECASE)
+            if cleaned_buffer:
+                yield cleaned_buffer
 
-        # fallback search AFTER streaming if needed
+        # Fallback search if helpless
         if is_helpless_response(full_response):
             results = safe_search(user_input)
-
             if results:
-                follow_prompt = f"""
-Answer using these results:
-
-{results}
-"""
-                # Stream fallback search response
-                for chunk in stream_model(follow_prompt, model=settings.MODEL_FAST):
+                follow_prompt = f"Answer naturally as Saki using these search results:\n{results}\nQuery: {user_input}\nSaki:"
+                for chunk in stream_model(follow_prompt, model=settings.MODEL_QWEN3, keep_alive=settings.MODEL_KEEP_ALIVE_SESSION):
                     full_response += chunk
                     yield chunk
 
-        # update memory AFTER full response
-        update_memory(memory, user_input, full_response.strip())
+        # Post-evaluation and cleansing
+        eval_result = evaluate_response(full_response, plan=plan, mode=decision.conversation_mode)
+        cleaned_response = eval_result.repaired_text
+        
+        # Persist memory, awareness, and conversation history
+        awareness_dict = decision.awareness.dict() if decision.awareness else None
+        update_memory(memory, user_input, cleaned_response, awareness_dict=awareness_dict)
+        append_message_to_conversation(conv_id, user_input, cleaned_response, req.attachments)
 
     return StreamingResponse(generate(), media_type="text/plain")
 
 
-def clean_response(text: str) -> str:
-    lines = text.split("\n")
-    clean = []
-
-    for l in lines:
-        l = l.strip()
-        if l and l not in clean:
-            clean.append(l)
-
-    return " ".join(clean[:3])
-
-
-@router.post("/chat")
+@router.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
     user_input = req.message.strip()
+    conv_id = req.conversation_id or "default-session"
     attachment_context = get_attachment_context(req)
     prompt_input = user_input + attachment_context
 
     memory = load_memory()
-    memory_context = build_memory_context(memory, user_input, settings.MEMORY_CONTEXT_LIMIT)
     history_context = format_history_context(memory.get("conversation_history", []))
-    intent = detect_intent(user_input)
 
-    # -------------------------
-    # EMOTIONAL RESPONSE
-    # -------------------------
-    if intent == "emotional":
-        prompt = f"""
-You are Saki, a caring, supportive local-first AI companion.
+    correction = detect_user_correction(user_input)
+    if correction:
+        from backend.services.memory_service import _upsert_memory
+        _upsert_memory(memory, correction)
 
-Durable memory:
-{memory_context}
-{history_context}
+    prev_awareness_raw = memory.get("awareness")
+    prev_awareness = SakiAwareness(**prev_awareness_raw) if prev_awareness_raw else None
 
-User: {prompt_input}
+    decision = SakiModelOrchestrator.classify_request(
+        query=user_input,
+        attachments=req.attachments,
+        previous_awareness=prev_awareness,
+        memory_data=memory
+    )
 
-Respond with empathy and warmth.
-"""
-        response = call_model_with(settings.MODEL_EMO, prompt)
+    user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
+    plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
 
-    # -------------------------
-    # NEWS
-    # -------------------------
-    elif intent == "news":
-        news_data = get_safe_news()
+    memory_context = build_smart_memory_context(
+        memory=memory,
+        query=user_input,
+        limit=settings.MEMORY_CONTEXT_LIMIT,
+        active_mode=decision.conversation_mode,
+        active_project=decision.awareness.current_project if decision.awareness else None
+    )
 
-        prompt = f"""
-Summarize these headlines clearly:
+    prompt = build_orchestrated_prompt(decision, plan, prompt_input, memory_context, history_context)
+    selected_model = decision.selected_model
 
-{news_data}
+    image_paths = []
+    if req.attachments:
+        for att in req.attachments:
+            if att.get("path") and (
+                att.get("type") == "image" 
+                or str(att.get("name", "")).lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"))
+            ):
+                image_paths.append(att["path"])
 
-User: {prompt_input}
+    response = call_model(
+        prompt, 
+        model=selected_model, 
+        keep_alive=settings.MODEL_KEEP_ALIVE_SESSION,
+        images=image_paths if image_paths else None
+    )
 
-User context, if useful:
-{memory_context}
-{history_context}
-"""
-        response = call_model(prompt)
+    if is_helpless_response(response):
+        results = safe_search(user_input)
+        if results:
+            response = call_model(
+                f"Answer naturally as Saki using these search results:\n{results}\nQuery: {user_input}\nSaki:",
+                model=settings.MODEL_QWEN3
+            )
 
-    # -------------------------
-    # NORMAL CHAT / QUESTION
-    # -------------------------
-    else:
-        prompt = build_saki_prompt(prompt_input, memory_context, history_context)
-        response = call_model(prompt)
+    eval_result = evaluate_response(response, plan=plan, mode=decision.conversation_mode)
+    final_response = eval_result.repaired_text
 
-        # -------------------------
-        # FALLBACK SEARCH
-        # -------------------------
-        if is_helpless_response(response):
-            results = safe_search(user_input)
+    awareness_dict = decision.awareness.dict() if decision.awareness else None
+    update_memory(memory, user_input, final_response, awareness_dict=awareness_dict)
+    append_message_to_conversation(conv_id, user_input, final_response, req.attachments)
 
-            if results:
-                response = call_model(f"""
-Answer using these results:
+    return ChatResponse(
+        response=final_response,
+        intent=decision.task_type,
+        mode=decision.conversation_mode,
+        routing=decision.dict(),
+        awareness=decision.awareness.dict() if decision.awareness else None,
+        plan=ResponsePlanSchema(
+            goal=plan.goal,
+            tone=plan.tone,
+            depth=plan.depth,
+            acknowledge_emotion=plan.acknowledge_emotion,
+            use_humor=plan.use_humor,
+            ask_question=plan.ask_question,
+            technical_detail=plan.technical_detail
+        ),
+        evaluation=EvaluationResultSchema(
+            passed=eval_result.passed,
+            score=eval_result.score,
+            persona_issues=eval_result.persona_issues
+        )
+    )
 
-{results}
-""")
 
-    response = clean_response(response)
-    response = clean_speaker_prefix(response)
-
-    update_memory(memory, user_input, response)
-
+@router.post("/chat/unload")
+def chat_unload(model_name: Optional[str] = None):
+    target_model = model_name or settings.MODEL_DEFAULT
+    success = unload_model(target_model)
     return {
-        "response": response
+        "unloaded_model": target_model,
+        "success": success
     }
 
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
-    import os
-    # Save the file to data/uploads/
     upload_dir = os.path.abspath(os.path.join(os.getcwd(), "data", "uploads"))
     os.makedirs(upload_dir, exist_ok=True)
     file_path = os.path.join(upload_dir, file.filename)
     
-    # Write the bytes
     content = await file.read()
     with open(file_path, "wb") as f:
         f.write(content)

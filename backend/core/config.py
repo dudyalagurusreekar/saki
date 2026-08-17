@@ -19,10 +19,22 @@ class Settings:
     PRIVACY_MODE = "MEDIUM"
 
     # -------------------------
-    # MODELS
+    # MODELS (Saki Local Model Orchestrator)
     # -------------------------
-    MODEL_FAST = "phi3"
-    MODEL_EMO = "saki"
+    MODEL_PHI3 = "phi3:latest"
+    MODEL_HERMES = "nous-hermes2:latest"
+    MODEL_QWEN3 = "qwen3:8b"
+    MODEL_CODER = "qwen2.5-coder:7b"
+    MODEL_GEMMA = "gemma3:4b"
+
+    # Backward compatibility fallbacks
+    MODEL_FAST = "phi3:latest"
+    MODEL_EMO = "nous-hermes2:latest"
+    MODEL_DEFAULT = "qwen3:8b"
+
+    # Model Idle Timeout in seconds (for unloading)
+    MODEL_KEEP_ALIVE_SESSION = "5m"
+    MODEL_KEEP_ALIVE_UNLOAD = "0s"
 
     # -------------------------
     # MEMORY CONTROL
