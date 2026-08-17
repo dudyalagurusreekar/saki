@@ -490,8 +490,10 @@ def chat(req: ChatRequest):
             passed=eval_result.passed,
             score=eval_result.score,
             persona_issues=eval_result.persona_issues
-        )
+        ),
+        action_decision=decision.action_decision.dict() if decision.action_decision else None
     )
+
 
 
 @router.post("/chat/unload")

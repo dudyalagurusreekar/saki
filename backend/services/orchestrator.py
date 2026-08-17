@@ -22,6 +22,7 @@ from backend.core.saki_state import (
     infer_task_and_stage
 )
 from backend.services.learning_service import apply_learned_policies
+from backend.services.action_engine import ActionDecision, decide_action
 
 
 class RoutingDecision(BaseModel):
@@ -35,6 +36,7 @@ class RoutingDecision(BaseModel):
     social_energy: SocialEnergyState = Field(default_factory=SocialEnergyState)
     awareness: Optional[SakiAwareness] = None
     cognitive_state: Optional[SakiCognitiveState] = None
+    action_decision: Optional[ActionDecision] = None
     vision_required: bool = Field(default=False)
     coding_required: bool = Field(default=False)
     memory_required: bool = Field(default=False)
@@ -44,6 +46,7 @@ class RoutingDecision(BaseModel):
     should_switch_model: bool = Field(default=False)
     should_stop_after_response: bool = Field(default=True)
     keep_loaded: bool = Field(default=False)
+
 
 
 # Standard simple greetings / short voice triggers
@@ -148,6 +151,7 @@ class SakiModelOrchestrator:
                 social_energy=awareness.social_energy,
                 awareness=awareness,
                 cognitive_state=cognitive_state,
+                action_decision=decide_action(query_text, attachments, memory_data, is_coding=False, has_image=True),
                 vision_required=True,
                 coding_required=False,
                 memory_required=False,
@@ -218,6 +222,7 @@ class SakiModelOrchestrator:
                 social_energy=awareness.social_energy,
                 awareness=awareness,
                 cognitive_state=cognitive_state,
+                action_decision=decide_action(query_text, attachments, memory_data, task_type="coding_task", is_coding=True, has_image=False),
                 vision_required=False,
                 coding_required=True,
                 memory_required=memory_required,
@@ -260,6 +265,7 @@ class SakiModelOrchestrator:
                 social_energy=awareness.social_energy,
                 awareness=awareness,
                 cognitive_state=cognitive_state,
+                action_decision=decide_action(query_text, attachments, memory_data, task_type="emotional_support", is_coding=False, has_image=False),
                 vision_required=False,
                 coding_required=False,
                 memory_required=memory_required,
@@ -306,6 +312,7 @@ class SakiModelOrchestrator:
                 social_energy=awareness.social_energy,
                 awareness=awareness,
                 cognitive_state=cognitive_state,
+                action_decision=decide_action(query_text, attachments, memory_data, task_type="simple_chat", is_coding=False, has_image=False),
                 vision_required=False,
                 coding_required=False,
                 memory_required=False,
@@ -348,6 +355,7 @@ class SakiModelOrchestrator:
             social_energy=awareness.social_energy,
             awareness=awareness,
             cognitive_state=cognitive_state,
+            action_decision=decide_action(query_text, attachments, memory_data, task_type="general_reasoning", is_coding=False, has_image=False),
             vision_required=False,
             coding_required=False,
             memory_required=memory_required,

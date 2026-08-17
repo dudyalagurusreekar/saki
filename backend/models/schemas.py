@@ -64,6 +64,29 @@ class SakiCognitiveStateSchema(BaseModel):
 
 
 # -------------------------
+# ACTION DECISION SCHEMA
+# -------------------------
+class ActionDecisionSchema(BaseModel):
+    action: str = Field(default="LOCAL_REASONING", description="LOCAL_REASONING, MEMORY_RECALL, RAG_RETRIEVAL, WEB_SEARCH, WEB_FETCH, WEB_RESEARCH, BROWSER_READ, BROWSER_INTERACT, VISION, CODING, CLARIFICATION, NO_ACTION")
+    reason: str = Field(default="Standard local reasoning", description="Short summary of why action was selected")
+    confidence: float = Field(default=0.90, description="Decision confidence 0.0 to 1.0")
+    requires_memory: bool = False
+    requires_rag: bool = False
+    requires_world_access: bool = False
+    requires_fresh_information: bool = False
+    requires_user_confirmation: bool = False
+    query_intent: str = "casual_chat"
+    task_type: str = "casual_chat"
+    information_need: str = "none"
+    priority: str = "normal"
+    fallback_action: str = "LOCAL_REASONING"
+    freshness_requirement: str = "STABLE"
+    context_requirements: Dict[str, Any] = Field(default_factory=dict)
+    constraints: Dict[str, Any] = Field(default_factory=dict)
+    planned_actions: List[str] = Field(default_factory=lambda: ["LOCAL_REASONING"])
+
+
+# -------------------------
 # CHAT REQUEST
 # -------------------------
 class ChatRequest(BaseModel):
@@ -100,6 +123,8 @@ class ChatResponse(BaseModel):
     awareness: Optional[SakiAwarenessSchema] = None
     plan: Optional[ResponsePlanSchema] = None
     evaluation: Optional[EvaluationResultSchema] = None
+    action_decision: Optional[ActionDecisionSchema] = None
+
 
 
 # -------------------------
