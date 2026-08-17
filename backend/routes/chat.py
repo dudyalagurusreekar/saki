@@ -354,12 +354,15 @@ def chat_stream(req: ChatRequest):
                 user_input,
                 req.attachments
             )
-    # Computer Subsystem Execution
+    # Computer & Development Subsystem Execution
     computer_obs_obj = None
+    dev_task_obj = None
     if decision.action_decision and decision.action_decision.action == "CODING":
         from backend.services.computer_controller import ComputerController, ComputerAction
+        from backend.services.development_capability import DevelopmentCapability
         c_action = ComputerAction(action_type="INSPECT_WORKSPACE", target_path=r"c:\Users\gurus\work\saki")
         computer_obs_obj = ComputerController.execute_action(c_action)
+        dev_task_obj = DevelopmentCapability.execute_development_task(user_input)
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
     plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
@@ -490,12 +493,15 @@ def chat(req: ChatRequest):
         if evidence_prompt_block:
             prompt_input = prompt_input + evidence_prompt_block
 
-    # Computer Subsystem Execution
+    # Computer & Development Subsystem Execution
     computer_obs_obj = None
+    dev_task_obj = None
     if decision.action_decision and decision.action_decision.action == "CODING":
         from backend.services.computer_controller import ComputerController, ComputerAction
+        from backend.services.development_capability import DevelopmentCapability
         c_action = ComputerAction(action_type="INSPECT_WORKSPACE", target_path=r"c:\Users\gurus\work\saki")
         computer_obs_obj = ComputerController.execute_action(c_action)
+        dev_task_obj = DevelopmentCapability.execute_development_task(user_input)
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
 
@@ -593,7 +599,17 @@ def chat(req: ChatRequest):
             file_count=computer_obs_obj.file_count,
             risk_level=computer_obs_obj.risk_level,
             retrieved_at=computer_obs_obj.retrieved_at
-        ) if computer_obs_obj else None
+        ) if computer_obs_obj else None,
+        development_task=DevelopmentTaskSchema(
+            task_id=dev_task_obj.task_id,
+            user_request=dev_task_obj.user_request,
+            objective=dev_task_obj.objective,
+            status=dev_task_obj.status,
+            files_changed=dev_task_obj.files_changed,
+            tests_run=dev_task_obj.tests_run,
+            tests_passed=dev_task_obj.tests_passed,
+            summary=dev_task_obj.summary
+        ) if dev_task_obj else None
     )
 
 

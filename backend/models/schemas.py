@@ -369,6 +369,40 @@ class ComputerObservationSchema(BaseModel):
 
 
 # -------------------------
+# DEVELOPMENT CAPABILITY SCHEMAS
+# -------------------------
+class RepositoryContextSchema(BaseModel):
+    repository_id: str = "saki"
+    root_path: str = r"c:\Users\gurus\work\saki"
+    project_type: str = "Python/FastAPI + TypeScript/React"
+    languages: List[str] = Field(default_factory=lambda: ["Python", "TypeScript", "HTML", "CSS"])
+    frameworks: List[str] = Field(default_factory=lambda: ["FastAPI", "React", "Pydantic", "Pytest"])
+    source_directories: List[str] = Field(default_factory=lambda: ["backend", "frontend/src"])
+    test_directories: List[str] = Field(default_factory=lambda: ["backend/tests", "brain/tests"])
+    git_branch: str = "main"
+
+
+class ChangeProposalSchema(BaseModel):
+    change_id: str
+    target_file: str
+    operation: str = "MODIFY"  # CREATE, MODIFY, RENAME, DELETE
+    reason: str = ""
+    risk_level: str = "LOW"    # READ_ONLY, LOW, MEDIUM, HIGH, CRITICAL
+    diff_snippet: str = ""
+
+
+class DevelopmentTaskSchema(BaseModel):
+    task_id: str
+    user_request: str
+    objective: str
+    status: str = "COMPLETED"  # ANALYZING, PLANNING, MODIFYING, TESTING, VERIFYING, COMPLETED, FAILED, BLOCKED
+    files_changed: List[str] = Field(default_factory=list)
+    tests_run: int = 0
+    tests_passed: bool = True
+    summary: str = ""
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -389,6 +423,8 @@ class ChatResponse(BaseModel):
     memory_admission: Optional[MemoryAdmissionDecisionSchema] = None
     browser_observation: Optional[BrowserObservationSchema] = None
     computer_observation: Optional[ComputerObservationSchema] = None
+    development_task: Optional[DevelopmentTaskSchema] = None
+
 
 
 
