@@ -543,6 +543,36 @@ class FusedKnowledgePackageSchema(BaseModel):
 
 
 # -------------------------
+# KNOWLEDGE GRAPH SCHEMAS
+# -------------------------
+class KnowledgeNodeSchema(BaseModel):
+    node_id: str
+    node_type: str  # USER, GOAL, PROJECT, TASK, MEMORY, FILE, REPOSITORY, PR, ISSUE
+    canonical_id: str
+    label: str
+    source: str = "USER_EXPLICIT"
+    confidence: float = 1.0
+    status: str = "ACTIVE"
+
+
+class KnowledgeEdgeSchema(BaseModel):
+    edge_id: str
+    source_node: str
+    relation: str  # OWNS, HAS_GOAL, CONTAINS, RELATES_TO, USES, HAS_TASK, AFFECTS, MODIFIES
+    target_node: str
+    confidence: float = 1.0
+    status: str = "ACTIVE"
+
+
+class KnowledgeGraphPackageSchema(BaseModel):
+    total_nodes: int = 0
+    total_edges: int = 0
+    nodes: List[KnowledgeNodeSchema] = Field(default_factory=list)
+    edges: List[KnowledgeEdgeSchema] = Field(default_factory=list)
+    details: str = "Knowledge graph traversal completed."
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -569,6 +599,8 @@ class ChatResponse(BaseModel):
     personal_context: Optional[PersonalContextTelemetrySchema] = None
     unified_knowledge: Optional[UnifiedKnowledgePackageSchema] = None
     knowledge_fusion: Optional[FusedKnowledgePackageSchema] = None
+    knowledge_graph: Optional[KnowledgeGraphPackageSchema] = None
+
 
 
 
