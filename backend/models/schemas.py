@@ -1,5 +1,7 @@
+import time
 from pydantic import BaseModel, Field
 from typing import Any, Optional, List, Dict
+
 
 
 # -------------------------
@@ -150,6 +152,24 @@ class ChatRequest(BaseModel):
 
 
 # -------------------------
+# EVIDENCE SCHEMA
+# -------------------------
+class EvidenceItemSchema(BaseModel):
+    source_type: str = Field(default="search_result", description="search_result, web_page, document, news_article")
+    url: Optional[str] = None
+    domain: Optional[str] = None
+    title: str = "Web Evidence"
+    content: str = ""
+    retrieved_at: float = Field(default_factory=time.time)
+    published_at: Optional[float] = None
+    freshness_score: float = 1.0
+    relevance_score: float = 1.0
+    authority_score: float = 1.0
+    confidence: float = 1.0
+    provenance: Dict[str, Any] = Field(default_factory=dict)
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -164,6 +184,8 @@ class ChatResponse(BaseModel):
     plan: Optional[ResponsePlanSchema] = None
     evaluation: Optional[EvaluationResultSchema] = None
     action_decision: Optional[ActionDecisionSchema] = None
+    world_access_evidence: Optional[List[EvidenceItemSchema]] = None
+
 
 
 

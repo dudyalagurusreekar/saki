@@ -327,6 +327,19 @@ def chat_stream(req: ChatRequest):
         memory_data=memory
     )
 
+    # World Access Execution (Search / Fetch / Research)
+    evidence_items = []
+    evidence_prompt_block = ""
+    if decision.action_decision and decision.action_decision.requires_world_access:
+        from backend.services.world_access_manager import WorldAccessManager
+        evidence_items, evidence_prompt_block = WorldAccessManager.execute_action(
+            decision.action_decision,
+            user_input,
+            req.attachments
+        )
+        if evidence_prompt_block:
+            prompt_input = prompt_input + evidence_prompt_block
+
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
     plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
 
@@ -426,6 +439,20 @@ def chat(req: ChatRequest):
         memory_data=memory
     )
 
+    # World Access Execution (Search / Fetch / Research)
+    evidence_items = []
+    evidence_prompt_block = ""
+    if decision.action_decision and decision.action_decision.requires_world_access:
+        from backend.services.world_access_manager import WorldAccessManager
+        evidence_items, evidence_prompt_block = WorldAccessManager.execute_action(
+            decision.action_decision,
+            user_input,
+            req.attachments
+        )
+        if evidence_prompt_block:
+            prompt_input = prompt_input + evidence_prompt_block
+
+
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
     plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
 
@@ -491,7 +518,8 @@ def chat(req: ChatRequest):
             score=eval_result.score,
             persona_issues=eval_result.persona_issues
         ),
-        action_decision=decision.action_decision.dict() if decision.action_decision else None
+        action_decision=decision.action_decision.dict() if decision.action_decision else None,
+        world_access_evidence=[EvidenceItemSchema(**e.dict()) for e in evidence_items] if evidence_items else None
     )
 
 
