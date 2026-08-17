@@ -11,6 +11,9 @@ def test_privacy_mode_high_blocks_search():
 
 
 def test_safe_search_fallback_privacy():
-    with patch("backend.services.search_service.make_safe_query", return_value=""):
+    with patch("backend.core.privacy.PrivacyPolicyEngine.evaluate_request") as mock_eval:
+        from backend.core.privacy import PrivacyDecision, DECISION_BLOCK
+        mock_eval.return_value = PrivacyDecision(decision=DECISION_BLOCK, reason="Blocked for test")
         results = safe_search("sensitive personal question")
         assert results == []
+

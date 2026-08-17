@@ -1,13 +1,34 @@
 from backend.core.config import settings
-from backend.core.privacy import make_safe_query, expand_query
+from backend.core.privacy import (
+    make_safe_query, 
+    expand_query, 
+    PrivacyPolicyEngine, 
+    OutboundRequest, 
+    PrivacyAuditLogger,
+    DECISION_BLOCK,
+    DECISION_REQUIRE_CONFIRMATION
+)
 from backend.services.search import multi_search
 
 def safe_search(user_input: str) -> list[str]:
+    """
+    Executes outbound web search only after passing PrivacyPolicyEngine enforcement.
+    Fails closed on secrets, PII, or STRICT privacy mode.
+    """
+    req = OutboundRequest(
+        query=user_input, 
+        action="WEB_SEARCH",
+        destination="PUBLIC_SEARCH",
+        privacy_mode=settings.PRIVACY_MODE
+    )
+    decision = PrivacyPolicyEngine.evaluate_request(req)
+    PrivacyAuditLogger.log_decision(decision, action="WEB_SEARCH", destination="PUBLIC_SEARCH")
 
-    if settings.PRIVACY_MODE == "HIGH":
+    if decision.decision in [DECISION_BLOCK, DECISION_REQUIRE_CONFIRMATION] or not decision.sanitized_request:
         return []
 
-    safe_query = make_safe_query(user_input)
+    safe_query = decision.sanitized_request
+
 
     if not safe_query:
         return []
@@ -40,4 +61,4 @@ def safe_search(user_input: str) -> list[str]:
             seen.add(r)
             clean_results.append(r)
 
-    return clean_results
+    return clean_results

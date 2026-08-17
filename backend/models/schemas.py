@@ -64,8 +64,48 @@ class SakiCognitiveStateSchema(BaseModel):
 
 
 # -------------------------
+# PRIVACY & SECURITY SCHEMAS
+# -------------------------
+class OutboundDataItemSchema(BaseModel):
+    value_descriptor: str = Field(description="Safe descriptor of value e.g. EMAIL, PUBLIC_QUERY, API_KEY")
+    classification: str = Field(description="PUBLIC, CONTEXTUAL, PERSONAL, PRIVATE, SECRET, RESTRICTED")
+    source: str = "user_input"
+    reason: str = "outbound_data_element"
+    required_for_request: bool = True
+    confidence: float = 1.0
+    sensitivity: float = 0.0
+    action: str = Field(default="ALLOW", description="ALLOW, SANITIZE, BLOCK, REQUIRE_CONFIRMATION")
+
+
+class OutboundRequestSchema(BaseModel):
+    action: str = "WEB_SEARCH"
+    destination: str = "PUBLIC_SEARCH"
+    method: str = "GET"
+    query: str = ""
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+    headers: Dict[str, Any] = Field(default_factory=dict)
+    data_items: List[OutboundDataItemSchema] = Field(default_factory=list)
+    requested_capability: str = "WEB_SEARCH"
+    privacy_mode: str = "BALANCED"
+    requires_confirmation: bool = False
+    purpose: str = "outbound_search"
+
+
+class PrivacyDecisionSchema(BaseModel):
+    decision: str = Field(default="BLOCK", description="ALLOW, SANITIZE, BLOCK, REQUIRE_CONFIRMATION")
+    reason: str = Field(default="Fail-closed default evaluation")
+    risk_level: str = Field(default="LOW", description="LOW, MEDIUM, HIGH, CRITICAL")
+    sanitized_request: str = ""
+    blocked_items: List[str] = Field(default_factory=list)
+    removed_items: List[str] = Field(default_factory=list)
+    policy_version: str = "s2.1"
+    audit_id: str = ""
+
+
+# -------------------------
 # ACTION DECISION SCHEMA
 # -------------------------
+
 class ActionDecisionSchema(BaseModel):
     action: str = Field(default="LOCAL_REASONING", description="LOCAL_REASONING, MEMORY_RECALL, RAG_RETRIEVAL, WEB_SEARCH, WEB_FETCH, WEB_RESEARCH, BROWSER_READ, BROWSER_INTERACT, VISION, CODING, CLARIFICATION, NO_ACTION")
     reason: str = Field(default="Standard local reasoning", description="Short summary of why action was selected")
