@@ -372,12 +372,14 @@ def chat_stream(req: ChatRequest):
         from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
         persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
 
-    # Personal Context & Unified Knowledge RAG Evaluation
+    # Personal Context, Unified Knowledge RAG & Knowledge Fusion Evaluation
     from backend.services.personal_context import PersonalContextEngine, AttentionPolicy
     from backend.services.unified_knowledge import UnifiedKnowledgeEngine
+    from backend.services.knowledge_fusion import KnowledgeFusionEngine
     active_ctx_items = PersonalContextEngine.select_minimal_context(user_input)
     attn_mode = PersonalContextEngine.evaluate_proactive_attention(AttentionPolicy())
     unified_rag_pkg = UnifiedKnowledgeEngine.retrieve_knowledge(user_input)
+    fused_knowledge_pkg = KnowledgeFusionEngine.fuse_knowledge(unified_rag_pkg)
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
     plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
@@ -526,12 +528,14 @@ def chat(req: ChatRequest):
         from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
         persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
 
-    # Personal Context & Unified Knowledge RAG Evaluation
+    # Personal Context, Unified Knowledge RAG & Knowledge Fusion Evaluation
     from backend.services.personal_context import PersonalContextEngine, AttentionPolicy
     from backend.services.unified_knowledge import UnifiedKnowledgeEngine
+    from backend.services.knowledge_fusion import KnowledgeFusionEngine
     active_ctx_items = PersonalContextEngine.select_minimal_context(user_input)
     attn_mode = PersonalContextEngine.evaluate_proactive_attention(AttentionPolicy())
     unified_rag_pkg = UnifiedKnowledgeEngine.retrieve_knowledge(user_input)
+    fused_knowledge_pkg = KnowledgeFusionEngine.fuse_knowledge(unified_rag_pkg)
 
 
 
@@ -683,7 +687,34 @@ def chat(req: ChatRequest):
                 ) for c in unified_rag_pkg.candidates
             ],
             details=unified_rag_pkg.details
-        ) if unified_rag_pkg else None
+        ) if unified_rag_pkg else None,
+        knowledge_fusion=FusedKnowledgePackageSchema(
+            total_claims=fused_knowledge_pkg.total_claims,
+            supported_claims_count=fused_knowledge_pkg.supported_claims_count,
+            has_conflicts=fused_knowledge_pkg.has_conflicts,
+            claims=[
+                FusedClaimSchema(
+                    claim_id=c.claim_id,
+                    subject=c.subject,
+                    predicate=c.predicate,
+                    object_value=c.object_value,
+                    support_state=c.support_state,
+                    confidence=c.confidence,
+                    sources=c.sources
+                ) for c in fused_knowledge_pkg.claims
+            ],
+            conflicts=[
+                SourceConflictSchema(
+                    conflict_id=conf.conflict_id,
+                    claim_a=conf.claim_a,
+                    source_a=conf.source_a,
+                    claim_b=conf.claim_b,
+                    source_b=conf.source_b,
+                    resolution_status=conf.resolution_status
+                ) for conf in fused_knowledge_pkg.conflicts
+            ],
+            details=fused_knowledge_pkg.details
+        ) if fused_knowledge_pkg else None
     )
 
 

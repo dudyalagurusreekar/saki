@@ -512,6 +512,37 @@ class UnifiedKnowledgePackageSchema(BaseModel):
 
 
 # -------------------------
+# KNOWLEDGE FUSION SCHEMAS
+# -------------------------
+class FusedClaimSchema(BaseModel):
+    claim_id: str
+    subject: str
+    predicate: str
+    object_value: str
+    support_state: str = "SUPPORTED"  # SUPPORTED, PARTIALLY_SUPPORTED, CONFLICTING, UNSUPPORTED, UNKNOWN
+    confidence: float = 1.0
+    sources: List[str] = Field(default_factory=list)
+
+
+class SourceConflictSchema(BaseModel):
+    conflict_id: str
+    claim_a: str
+    source_a: str
+    claim_b: str
+    source_b: str
+    resolution_status: str = "UNRESOLVED"  # RESOLVED, UNRESOLVED, CONFLICTING
+
+
+class FusedKnowledgePackageSchema(BaseModel):
+    total_claims: int = 0
+    supported_claims_count: int = 0
+    has_conflicts: bool = False
+    claims: List[FusedClaimSchema] = Field(default_factory=list)
+    conflicts: List[SourceConflictSchema] = Field(default_factory=list)
+    details: str = "Knowledge fusion completed."
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -537,6 +568,8 @@ class ChatResponse(BaseModel):
     persistent_task: Optional[SakiTaskSchema] = None
     personal_context: Optional[PersonalContextTelemetrySchema] = None
     unified_knowledge: Optional[UnifiedKnowledgePackageSchema] = None
+    knowledge_fusion: Optional[FusedKnowledgePackageSchema] = None
+
 
 
 
