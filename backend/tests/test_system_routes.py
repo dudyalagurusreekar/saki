@@ -38,3 +38,16 @@ def test_settings_endpoints():
     # Revert to clear_sky default
     reverted = update_settings({"theme": "clear_sky", "reduced_animation": False})
     assert reverted["theme"] == "clear_sky"
+
+
+def test_config_endpoint():
+    cfg = get_config()
+    assert "privacy_mode" in cfg
+    assert "model_phi3" in cfg
+    assert "model_hermes" in cfg
+    assert "model_qwen3" in cfg
+    assert "model_coder" in cfg
+    assert "model_gemma" in cfg
+    assert "model_default" in cfg
+    assert "max_memory" in cfg
+
