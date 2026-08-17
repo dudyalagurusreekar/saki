@@ -372,13 +372,14 @@ def chat_stream(req: ChatRequest):
         from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
         persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
 
-    # Personal Context, Unified Knowledge RAG, Knowledge Fusion, Knowledge Graph, Web Intelligence & Adaptive Intelligence Evaluation
+    # Personal Context, Unified Knowledge RAG, Knowledge Fusion, Knowledge Graph, Web Intelligence, Adaptive Intelligence & Autonomous Workflow Evaluation
     from backend.services.personal_context import PersonalContextEngine, AttentionPolicy
     from backend.services.unified_knowledge import UnifiedKnowledgeEngine
     from backend.services.knowledge_fusion import KnowledgeFusionEngine
     from backend.services.knowledge_graph import KnowledgeGraphEngine
     from backend.services.web_intelligence import WebIntelligenceCapability
     from backend.services.adaptive_intelligence import AdaptiveIntelligenceEngine
+    from backend.services.autonomous_workflow import AutonomousWorkflowEngine
     active_ctx_items = PersonalContextEngine.select_minimal_context(user_input)
     attn_mode = PersonalContextEngine.evaluate_proactive_attention(AttentionPolicy())
     unified_rag_pkg = UnifiedKnowledgeEngine.retrieve_knowledge(user_input)
@@ -386,6 +387,10 @@ def chat_stream(req: ChatRequest):
     knowledge_graph_pkg = KnowledgeGraphEngine.traverse_subgraph(user_input, fused_knowledge_pkg)
     web_intel_res = WebIntelligenceCapability.execute_web_intelligence(user_input) if any(k in user_input.lower() for k in ["search", "web", "latest", "doc", "fastapi"]) else None
     adaptive_intel_res = AdaptiveIntelligenceEngine.process_user_input(user_input)
+    wf_telemetry = None
+    if any(k in user_input.lower() for k in ["workflow", "prepare a fix", "multi-step"]):
+        created_wf = AutonomousWorkflowEngine.create_workflow(user_input)
+        wf_telemetry = AutonomousWorkflowEngine.execute_workflow(created_wf.workflow_id)
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
     plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
@@ -534,13 +539,14 @@ def chat(req: ChatRequest):
         from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
         persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
 
-    # Personal Context, Unified Knowledge RAG, Knowledge Fusion, Knowledge Graph, Web Intelligence & Adaptive Intelligence Evaluation
+    # Personal Context, Unified Knowledge RAG, Knowledge Fusion, Knowledge Graph, Web Intelligence, Adaptive Intelligence & Autonomous Workflow Evaluation
     from backend.services.personal_context import PersonalContextEngine, AttentionPolicy
     from backend.services.unified_knowledge import UnifiedKnowledgeEngine
     from backend.services.knowledge_fusion import KnowledgeFusionEngine
     from backend.services.knowledge_graph import KnowledgeGraphEngine
     from backend.services.web_intelligence import WebIntelligenceCapability
     from backend.services.adaptive_intelligence import AdaptiveIntelligenceEngine
+    from backend.services.autonomous_workflow import AutonomousWorkflowEngine
     active_ctx_items = PersonalContextEngine.select_minimal_context(user_input)
     attn_mode = PersonalContextEngine.evaluate_proactive_attention(AttentionPolicy())
     unified_rag_pkg = UnifiedKnowledgeEngine.retrieve_knowledge(user_input)
@@ -548,6 +554,11 @@ def chat(req: ChatRequest):
     knowledge_graph_pkg = KnowledgeGraphEngine.traverse_subgraph(user_input, fused_knowledge_pkg)
     web_intel_res = WebIntelligenceCapability.execute_web_intelligence(user_input) if any(k in user_input.lower() for k in ["search", "web", "latest", "doc", "fastapi"]) else None
     adaptive_intel_res = AdaptiveIntelligenceEngine.process_user_input(user_input)
+    wf_telemetry = None
+    if any(k in user_input.lower() for k in ["workflow", "prepare a fix", "multi-step"]):
+        created_wf = AutonomousWorkflowEngine.create_workflow(user_input)
+        wf_telemetry = AutonomousWorkflowEngine.execute_workflow(created_wf.workflow_id)
+
 
 
 
@@ -785,7 +796,26 @@ def chat(req: ChatRequest):
                 ) for c in adaptive_intel_res.active_candidates
             ],
             details=adaptive_intel_res.details
-        ) if adaptive_intel_res else None
+        ) if adaptive_intel_res else None,
+        autonomous_workflow=WorkflowTelemetrySchema(
+            active_workflow=SakiWorkflowSchema(
+                workflow_id=wf_telemetry.active_workflow.workflow_id,
+                objective=wf_telemetry.active_workflow.objective,
+                status=wf_telemetry.active_workflow.status,
+                current_step_index=wf_telemetry.active_workflow.current_step_index,
+                total_steps=len(wf_telemetry.active_workflow.steps),
+                steps=[
+                    WorkflowStepSchema(
+                        step_id=st.step_id,
+                        objective=st.objective,
+                        capability=st.capability,
+                        status=st.status
+                    ) for st in wf_telemetry.active_workflow.steps
+                ]
+            ) if wf_telemetry and wf_telemetry.active_workflow else None,
+            execution_status=wf_telemetry.execution_status if wf_telemetry else "IDLE",
+            details=wf_telemetry.details if wf_telemetry else "No active workflow."
+        ) if wf_telemetry else None
     )
 
 

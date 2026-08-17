@@ -613,6 +613,31 @@ class AdaptiveIntelligenceTelemetrySchema(BaseModel):
 
 
 # -------------------------
+# AUTONOMOUS WORKFLOW SCHEMAS
+# -------------------------
+class WorkflowStepSchema(BaseModel):
+    step_id: str
+    objective: str
+    capability: str
+    status: str = "PLANNED"
+
+
+class SakiWorkflowSchema(BaseModel):
+    workflow_id: str
+    objective: str
+    status: str = "PLANNED"
+    current_step_index: int = 0
+    total_steps: int = 0
+    steps: List[WorkflowStepSchema] = Field(default_factory=list)
+
+
+class WorkflowTelemetrySchema(BaseModel):
+    active_workflow: Optional[SakiWorkflowSchema] = None
+    execution_status: str = "IDLE"
+    details: str = "Autonomous workflow evaluation completed."
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -642,6 +667,8 @@ class ChatResponse(BaseModel):
     knowledge_graph: Optional[KnowledgeGraphPackageSchema] = None
     web_intelligence: Optional[WebIntelligenceTelemetrySchema] = None
     adaptive_intelligence: Optional[AdaptiveIntelligenceTelemetrySchema] = None
+    autonomous_workflow: Optional[WorkflowTelemetrySchema] = None
+
 
 
 
