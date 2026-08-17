@@ -148,7 +148,8 @@ class AutonomousWorkflowEngine:
                 dev_res = DevelopmentCapability.execute_development_task(step.objective)
                 step.status = STATE_COMPLETED
             elif step.capability == "VERIFICATION":
-                v_res = KnowledgeFusionEngine.fuse_knowledge(None)
+                from backend.services.unified_knowledge import UnifiedKnowledgePackage
+                v_res = KnowledgeFusionEngine.fuse_knowledge(UnifiedKnowledgePackage())
                 step.status = STATE_COMPLETED
 
 

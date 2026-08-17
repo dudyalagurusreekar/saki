@@ -1,3 +1,9 @@
+import os
+from dotenv import load_dotenv
+
+# Load local environment variables from .env file at startup
+load_dotenv()
+
 class Settings:
     """
     Central configuration for the entire backend system.
@@ -9,6 +15,12 @@ class Settings:
     # -------------------------
     APP_NAME = "Saki AI"
     VERSION = "1.0"
+
+    # Project workspace root (auto-detected from config location)
+    WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))  
+
+    # Frontend origin for CORS
+    FRONTEND_ORIGIN = "http://localhost:3000"
 
     # -------------------------
     # PRIVACY CONTROL
@@ -44,10 +56,20 @@ class Settings:
     MEMORY_CONTEXT_LIMIT = 6
 
     # -------------------------
-    # API KEYS
+    # API KEYS & EXTERNAL PROVIDERS
     # -------------------------
     NEWS_API_KEY = "your_news_api_key_here"
+    
+    # Controlled External Intelligence & Web Provider (Google Search Grounding)
+    GEMINI_API_KEY = os.environ.get(
+        "GEMINI_API_KEY", 
+        "your_gemini_api_key_here"
+    )
+    GEMINI_SEARCH_MODEL = os.environ.get("GEMINI_SEARCH_MODEL", "gemini-2.5-flash")
+    SEARCH_PROVIDER = os.environ.get("SEARCH_PROVIDER", "gemini")  # "gemini", "duckduckgo", "hybrid"
+    ENABLE_GEMINI_SEARCH = True
 
 
 # Global settings instance
 settings = Settings()
+

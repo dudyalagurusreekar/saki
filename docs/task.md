@@ -1,0 +1,4 @@
+- `[x]` Update `backend/services/action_engine.py` to detect explicit verification requests and set query intent to verification.
+- `[x]` Update `backend/services/gemini_search.py` to prompt Gemini with task-oriented Google Search grounding instructions.
+- `[x]` Update `backend/routes/chat.py` to implement `check_evidence_relevance` and handle verification/normal modes.
+- `[x]` Run complete unit and integration tests to verify correctness and safety.

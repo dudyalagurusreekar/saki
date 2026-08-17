@@ -242,6 +242,7 @@ export default function MessageBubble({
               onClick={onRetry}
               className="text-[10px] font-semibold text-slate-400 hover:text-indigo-500 flex items-center gap-1 transition cursor-pointer"
               title="Regenerate response"
+              suppressHydrationWarning
             >
               <span>↻</span>
               <span>Retry</span>

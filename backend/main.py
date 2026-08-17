@@ -20,9 +20,11 @@ app = FastAPI(
 # -------------------------
 # CORS (IMPORTANT for frontend)
 # -------------------------
+from backend.core.config import settings
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # later restrict for security
+    allow_origins=[settings.FRONTEND_ORIGIN],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

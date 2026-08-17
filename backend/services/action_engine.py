@@ -120,10 +120,27 @@ VISION_KEYWORDS = [
     "screenshot", "this image", "in this picture", "this diagram", "read text from photo", "visual layout", "what is in this photo"
 ]
 
+# Obscure, local, and regional entity indicators (temples, monuments, villages, heritage sites)
+OBSCURE_OR_LOCAL_ENTITY_PATTERNS = [
+    r"\b(temple|mandir|kovil|gudi|monument|fort|kambadur|malleswara|mallikarjuna|cave|waterfall|dam|ghat|peetham|mutt|kshetram)\b",
+    r"\b(village|taluk|mandal|district|panchayat|heritage site|ancient site|archaeological site)\b",
+    r"\b(what is special about|tell me about|history of|who built|architecture of|where is)\s+[A-Z][a-z]+",
+    r"\b(local festival|district administration|heritage monument|chalukyan|vijayanagara|chola|pallava|hoysala)\b"
+]
+
 
 # -------------------------
 # HYBRID ACTION DECISION ENGINE
 # -------------------------
+def is_obscure_or_local_entity_query(query: str) -> bool:
+    """
+    Detects if query is about an unfamiliar, local, or obscure entity
+    where model memory alone is untrustworthy and web entity verification is mandatory.
+    """
+    q_lower = query.lower()
+    return any(re.search(p, q_lower) for p in OBSCURE_OR_LOCAL_ENTITY_PATTERNS)
+
+
 def classify_freshness(query: str) -> str:
     """Classifies the information freshness requirement of a user query."""
     q_lower = query.lower()
@@ -131,10 +148,18 @@ def classify_freshness(query: str) -> str:
     if any(re.search(p, q_lower) for p in EXPLICIT_SEARCH_PATTERNS[:1]):
         return FRESHNESS_USER_EXPLICIT_SEARCH
         
-    if any(w in q_lower for w in ["weather", "live price", "stock price", "active status", "current rate", "live score"]):
+    if any(w in q_lower for w in ["weather", "live price", "stock price", "active status", "current rate", "live score", "traffic"]):
         return FRESHNESS_LIVE
 
-    if any(w in q_lower for w in ["latest", "current", "2026", "news", "recent", "today", "update", "newest", "who is current"]):
+    if any(w in q_lower for w in [
+        "latest", "current", "2026", "2025", "news", "recent", "today", "update", "newest",
+        "who is current", "current ceo", "current version", "latest release", "version of",
+        "release date", "what is new in", "changelog", "who is the prime minister", "who is the president"
+    ]):
+        return FRESHNESS_CURRENT
+
+    # Obscure / local entities require live web verification to avoid memory hallucinations
+    if is_obscure_or_local_entity_query(query):
         return FRESHNESS_CURRENT
 
     if any(w in q_lower for w in ["what is", "how to", "definition", "algorithm", "formula", "explain", "history of", "math"]):
@@ -178,6 +203,29 @@ def decide_action(
                 priority="normal",
                 freshness_requirement=FRESHNESS_STABLE,
                 planned_actions=[ACTION_VISION, ACTION_LOCAL_REASONING]
+            )
+
+        # 1b. Explicit Verification Check
+        verify_patterns = [
+            r"\b(verify|confirm|check whether|check if)\b",
+            r"\bis this correct\b",
+            r"\bis this true\b",
+            r"\bgive me verified\b"
+        ]
+        is_verification = any(re.search(pat, q_lower) for pat in verify_patterns)
+        if is_verification:
+            return ActionDecision(
+                action=ACTION_WEB_SEARCH,
+                reason="User explicitly requested factual verification or statement checking.",
+                confidence=0.98,
+                requires_world_access=True,
+                requires_fresh_information=True,
+                query_intent="verification",
+                task_type="verification_request",
+                information_need="official_entity_evidence",
+                priority="high",
+                freshness_requirement=FRESHNESS_CURRENT,
+                planned_actions=[ACTION_WEB_SEARCH, ACTION_LOCAL_REASONING]
             )
 
         # 2. Browser Interact Check
@@ -243,6 +291,22 @@ def decide_action(
                 priority="normal",
                 freshness_requirement=FRESHNESS_CURRENT,
                 planned_actions=[ACTION_MEMORY_RECALL, ACTION_WEB_RESEARCH, ACTION_LOCAL_REASONING]
+            )
+
+        # 5b. Obscure / Local Entity Verification Check (Strict Grounding Rule)
+        if is_obscure_or_local_entity_query(q_text):
+            return ActionDecision(
+                action=ACTION_WEB_SEARCH,
+                reason="Unfamiliar, local, or obscure entity detected. Hard Rule: Model memory alone is untrusted; mandatory web entity resolution and evidence retrieval required.",
+                confidence=0.96,
+                requires_world_access=True,
+                requires_fresh_information=True,
+                query_intent="entity_resolution_and_verification",
+                task_type="entity_verification",
+                information_need="official_entity_evidence",
+                priority="high",
+                freshness_requirement=FRESHNESS_CURRENT,
+                planned_actions=[ACTION_WEB_SEARCH, ACTION_LOCAL_REASONING]
             )
 
         # 6. Explicit / Time-Sensitive Web Search Check

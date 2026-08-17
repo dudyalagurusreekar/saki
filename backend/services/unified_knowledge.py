@@ -123,19 +123,19 @@ class UnifiedKnowledgeEngine:
                 provenance_label=f"Personal Context ({p.category})"
             ))
 
-        # 2. Connector: CODE & PROJECT_FILES
-        sources_queried.append(SRC_CODE)
-        dev_res = DevelopmentCapability.execute_development_task(query)
-        if dev_res and dev_res.objective:
-            target_loc = dev_res.files_changed[0] if dev_res.files_changed else (dev_res.plan.files_to_touch[0] if dev_res.plan and dev_res.plan.files_to_touch else r"c:\Users\gurus\work\saki")
-            candidates.append(KnowledgeCandidate(
-                source_type=SRC_CODE,
-                content=f"Development plan: {dev_res.objective} - {dev_res.summary}",
-                location=target_loc,
-                trust_weight=TRUST_AUTHORITATIVE,
-                provenance_label="Verified Workspace Codebase"
-            ))
-
+        # 2. Connector: CODE & PROJECT_FILES (only for code-related queries)
+        if any(k in query_lower for k in ["code", "file", "function", "class", "implement", "refactor", "debug", "build", "test", "fix", "error", "bug"]):
+            sources_queried.append(SRC_CODE)
+            dev_res = DevelopmentCapability.execute_development_task(query)
+            if dev_res and dev_res.objective:
+                target_loc = dev_res.files_changed[0] if dev_res.files_changed else (dev_res.plan.files_to_touch[0] if dev_res.plan and dev_res.plan.files_to_touch else "workspace")
+                candidates.append(KnowledgeCandidate(
+                    source_type=SRC_CODE,
+                    content=f"Development plan: {dev_res.objective} - {dev_res.summary}",
+                    location=target_loc,
+                    trust_weight=TRUST_AUTHORITATIVE,
+                    provenance_label="Verified Workspace Codebase"
+                ))
 
         # 3. Connector: GITHUB
         sources_queried.append(SRC_GITHUB)
@@ -150,18 +150,33 @@ class UnifiedKnowledgeEngine:
             ))
 
         # 4. Connector: WEB_SOURCE (Sanitized & Isolated)
-        if any(k in query_lower for k in ["search", "web", "latest", "doc", "fastapi"]):
+        if any(k in query_lower for k in ["search", "web", "latest", "doc", "fastapi", "release", "current", "2026"]):
             sources_queried.append(SRC_WEB_SOURCE)
-            raw_web_text = f"Official FastAPI documentation for query '{query}': StreamingResponse and Async generators supported."
-            clean_text, injection_found = cls.sanitize_prompt_injections(raw_web_text)
-            candidates.append(KnowledgeCandidate(
-                source_type=SRC_WEB_SOURCE,
-                content=clean_text,
-                location="https://fastapi.tiangolo.com",
-                trust_weight=TRUST_EXTERNAL,
-                is_untrusted_data=True,
-                provenance_label="External Web Retrieval (Sanitized Sandbox)"
-            ))
+            from backend.services.gemini_search import GeminiSearchProvider
+            search_items = GeminiSearchProvider.search(query, max_results=2)
+            if search_items:
+                for s_item in search_items:
+                    raw_text = s_item.get("snippet", "")
+                    clean_text, _ = cls.sanitize_prompt_injections(raw_text)
+                    candidates.append(KnowledgeCandidate(
+                        source_type=SRC_WEB_SOURCE,
+                        content=clean_text,
+                        location=s_item.get("url", "https://google.com"),
+                        trust_weight=TRUST_EXTERNAL,
+                        is_untrusted_data=True,
+                        provenance_label=f"{s_item.get('provider', 'Web Search')} ({s_item.get('title', 'Web Source')[:30]})"
+                    ))
+            else:
+                raw_web_text = f"Public web information for query '{query}'."
+                clean_text, injection_found = cls.sanitize_prompt_injections(raw_web_text)
+                candidates.append(KnowledgeCandidate(
+                    source_type=SRC_WEB_SOURCE,
+                    content=clean_text,
+                    location="https://duckduckgo.com",
+                    trust_weight=TRUST_EXTERNAL,
+                    is_untrusted_data=True,
+                    provenance_label="External Web Retrieval (Sanitized Sandbox)"
+                ))
 
         # Rank, Deduplicate & Minimal Context Selection
         ranked_candidates, has_conflicts = cls.rank_and_deduplicate(query, candidates)

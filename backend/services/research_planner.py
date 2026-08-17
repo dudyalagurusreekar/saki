@@ -162,7 +162,7 @@ class ResearchPlanner:
         plan = cls.create_plan(question, depth_level=depth_level)
         state = ResearchState()
         
-        from backend.services.world_access_manager import DuckDuckGoSearchProvider
+        from backend.services.gemini_search import GeminiSearchProvider
         
         seen_queries = set()
         pending_queries = list(plan.initial_queries)
@@ -202,13 +202,13 @@ class ResearchPlanner:
 
             sanitized_q = privacy_decision.sanitized_request or current_query
 
-            # 3. EXECUTE SEARCH STEP
+            # 3. EXECUTE SEARCH STEP VIA GEMINI GOOGLE GROUNDING
             step = ResearchStep(query=sanitized_q, purpose=f"Step {state.searches_count+1} search")
             step.status = STEP_RUNNING
             state.searches_count += 1
             state.depth_count += 1
 
-            raw_results = DuckDuckGoSearchProvider.search(sanitized_q, max_results=3)
+            raw_results = GeminiSearchProvider.search(sanitized_q, max_results=3)
             step.result_count = len(raw_results)
             step.status = STEP_COMPLETED if raw_results else STEP_FAILED
 

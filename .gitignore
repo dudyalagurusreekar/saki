@@ -42,3 +42,9 @@ coverage/
 
 # Cache
 .cache/venv/
+
+# Agent & AI Helper Resources
+!docs/
+!AGENTS.md
+!GEMINI.md
+!.agents/

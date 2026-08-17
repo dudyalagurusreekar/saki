@@ -10,6 +10,10 @@ from backend.core.config import settings
 
 MEMORY_PATH = Path("data/memory.json")
 
+# In-memory cache to avoid repeated file I/O and normalization per message
+_memory_cache: Optional[Dict[str, Any]] = None
+_cache_dirty: bool = False
+
 MEMORY_TYPES = {
     "FACT",
     "GOAL",
@@ -241,25 +245,45 @@ def get_categorized_memories(memory: dict[str, Any]) -> dict[str, list[dict[str,
 
 
 def load_memory() -> dict[str, Any]:
+    global _memory_cache
+    if _memory_cache is not None:
+        return _memory_cache
+
     if not MEMORY_PATH.exists():
-        return _default_memory()
+        _memory_cache = _default_memory()
+        return _memory_cache
 
     with open(MEMORY_PATH, "r", encoding="utf-8") as f:
         data = json.load(f)
         norm = normalize_memory(data)
         norm["categorized"] = get_categorized_memories(norm)
-        return norm
+        _memory_cache = norm
+        return _memory_cache
 
 
 def save_memory(memory: dict[str, Any]) -> None:
+    global _memory_cache, _cache_dirty
     MEMORY_PATH.parent.mkdir(exist_ok=True)
     memory = normalize_memory(memory)
 
     # Strip computed categorized before persisting
-    memory.pop("categorized", None)
+    persist_copy = {k: v for k, v in memory.items() if k != "categorized"}
 
     with open(MEMORY_PATH, "w", encoding="utf-8") as f:
-        json.dump(memory, f, indent=2, ensure_ascii=True)
+        json.dump(persist_copy, f, indent=2, ensure_ascii=True)
+
+    # Update cache with the normalized version (with categorized)
+    memory["categorized"] = get_categorized_memories(memory)
+    _memory_cache = memory
+    _cache_dirty = False
+
+
+def invalidate_memory_cache() -> None:
+    """Force reload from disk on next load_memory() call."""
+    global _memory_cache, _cache_dirty
+    _memory_cache = None
+    _cache_dirty = False
+
 
 
 def _candidate(memory_type: str, content: str, importance: int, confidence: float, metadata: Optional[dict] = None) -> dict[str, Any] | None:

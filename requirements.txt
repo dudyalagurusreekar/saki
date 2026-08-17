@@ -12,3 +12,4 @@ psutil
 google-generativeai
 SpeechRecognition
 pytest
+python-dotenv

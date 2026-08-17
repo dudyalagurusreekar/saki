@@ -3,6 +3,7 @@ import json
 import re
 import time
 import uuid
+import threading
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, UploadFile, File, Query
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -25,6 +26,7 @@ from backend.models.schemas import (
     KnowledgeCandidateSchema,
     FusedKnowledgePackageSchema,
     FusedClaimSchema,
+    SourceConflictSchema,
     KnowledgeGraphPackageSchema,
     KnowledgeNodeSchema,
     KnowledgeEdgeSchema,
@@ -52,15 +54,17 @@ from backend.core.saki_persona import build_saki_system_prompt
 router = APIRouter()
 
 CONVERSATIONS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "conversations.json")
+_conversations_lock = threading.Lock()
 
 
 def _load_conversations_data() -> Dict[str, Any]:
-    if os.path.exists(CONVERSATIONS_FILE):
-        try:
-            with open(CONVERSATIONS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
+    with _conversations_lock:
+        if os.path.exists(CONVERSATIONS_FILE):
+            try:
+                with open(CONVERSATIONS_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
 
     # Initialize from memory.json history if conversations.json doesn't exist
     memory = load_memory()
@@ -77,7 +81,7 @@ def _load_conversations_data() -> Dict[str, Any]:
 
     if not init_messages:
         init_messages = [
-            {"role": "assistant", "content": "Hey! Good to see you. What are we building or exploring today? 🌸"}
+            {"role": "assistant", "content": "Hey! Good to see you. What are we building or exploring today? ðŸŒ¸"}
         ]
 
     init_convs = {
@@ -98,9 +102,10 @@ def _load_conversations_data() -> Dict[str, Any]:
 
 
 def _save_conversations_data(data: Dict[str, Any]) -> None:
-    os.makedirs(os.path.dirname(CONVERSATIONS_FILE), exist_ok=True)
-    with open(CONVERSATIONS_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+    with _conversations_lock:
+        os.makedirs(os.path.dirname(CONVERSATIONS_FILE), exist_ok=True)
+        with open(CONVERSATIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
 
 
 def append_message_to_conversation(conv_id: str, user_msg: str, assistant_msg: str, attachments: Optional[List[dict]] = None):
@@ -218,7 +223,7 @@ def create_new_conversation():
         "created_at": time.time(),
         "updated_at": time.time(),
         "messages": [
-            {"role": "assistant", "content": "Hey! Good to see you. What are we building or exploring today? 🌸"}
+            {"role": "assistant", "content": "Hey! Good to see you. What are we building or exploring today? ðŸŒ¸"}
         ]
     }
     data.setdefault("conversations", {})[new_id] = new_conv
@@ -327,17 +332,97 @@ def build_orchestrated_prompt(
     return f"{system_prompt}\n\nUser: {prompt_input}\nSaki:"
 
 
+def check_evidence_relevance(query: str, evidence_items: List[Any]) -> bool:
+    """
+    Checks if retrieved evidence is relevant to the query to prevent hallucination fallbacks.
+    Returns True if relevant, False if completely irrelevant.
+    """
+    if not evidence_items:
+        return False
+        
+    import re
+    # Remove punctuation
+    clean_q = re.sub(r"[^\w\s]", "", query.lower())
+    words = clean_q.split()
+    
+    # Filter out common stop words and search filler words
+    stopwords = {
+        "what", "is", "special", "about", "temple", "in", "andhra", "pradesh", 
+        "tell", "me", "history", "of", "who", "built", "architecture", "where",
+        "the", "and", "for", "you", "know", "does", "anyone", "details", "verify",
+        "correct", "true", "confirm", "check", "whether", "if", "latest", "current",
+        "version", "release"
+    }
+    
+    keywords = [w for w in words if w not in stopwords and len(w) > 3]
+    
+    # If no specific keywords remain, default to True (relevance check skipped)
+    if not keywords:
+        return True
+        
+    # Check if at least one key word is present in at least one evidence item's title or content
+    for item in evidence_items:
+        title = ""
+        content = ""
+        
+        if hasattr(item, "title"):
+            title = getattr(item, "title") or ""
+        elif isinstance(item, dict):
+            title = item.get("title") or ""
+            
+        if hasattr(item, "content"):
+            content = getattr(item, "content") or ""
+        elif hasattr(item, "snippet"):
+            content = getattr(item, "snippet") or ""
+        elif isinstance(item, dict):
+            content = item.get("content") or item.get("snippet") or ""
+            
+        title_lower = title.lower()
+        content_lower = content.lower()
+        
+        for kw in keywords:
+            if kw in title_lower or kw in content_lower:
+                return True
+                
+    return False
+
+
 # -------------------------
-# STREAMING AND STANDARD CHAT
+# SHARED CHAT PIPELINE (eliminates duplication between /chat and /chat/stream)
 # -------------------------
-@router.post("/chat/stream")
-def chat_stream(req: ChatRequest):
+class ChatPipelineResult:
+    """Container for all results produced by the shared chat pipeline."""
+    __slots__ = [
+        'prompt', 'selected_model', 'plan', 'decision', 'memory', 'conv_id',
+        'image_paths', 'evidence_items', 'evidence_package', 'research_result_obj',
+        'browser_obs_obj', 'computer_obs_obj', 'dev_task_obj', 'git_telemetry_obj',
+        'persistent_task_obj', 'active_ctx_items', 'attn_mode', 'unified_rag_pkg',
+        'fused_knowledge_pkg', 'knowledge_graph_pkg', 'web_intel_res',
+        'adaptive_intel_res', 'wf_telemetry', 'user_input', 'attachments'
+    ]
+    def __init__(self):
+        for attr in self.__slots__:
+            setattr(self, attr, None)
+
+
+def _execute_chat_pipeline(req: ChatRequest) -> ChatPipelineResult:
+    """
+    Shared pipeline for both /chat and /chat/stream.
+    Gates heavyweight subsystems behind action_decision to avoid running
+    RAG, knowledge fusion, web intelligence, workflows etc. for simple messages.
+    """
+    result = ChatPipelineResult()
     user_input = req.message.strip()
     conv_id = req.conversation_id or "default-session"
     attachment_context = get_attachment_context(req)
     prompt_input = user_input + attachment_context
 
+    result.user_input = user_input
+    result.conv_id = conv_id
+    result.attachments = req.attachments
+
     memory = load_memory()
+    result.memory = memory
     history_context = format_history_context(memory.get("conversation_history", []))
 
     # Check for user correction (Learning Loop)
@@ -349,30 +434,36 @@ def chat_stream(req: ChatRequest):
     prev_awareness_raw = memory.get("awareness")
     prev_awareness = SakiAwareness(**prev_awareness_raw) if prev_awareness_raw else None
 
-    # Model Orchestration
+    # Model Orchestration â€” lightweight, always runs
     decision = SakiModelOrchestrator.classify_request(
         query=user_input,
         attachments=req.attachments,
         previous_awareness=prev_awareness,
         memory_data=memory
     )
+    result.decision = decision
+    action = decision.action_decision
 
-    # World Access, Research & Browser Automation Subsystem
+    # -------------------------------------------------------
+    # GATED SUBSYSTEMS: Only run what the orchestrator decided
+    # -------------------------------------------------------
+
+    # 1. World Access / Research / Browser (only if action requires it)
     evidence_items = []
     evidence_prompt_block = ""
     evidence_package = None
     research_result_obj = None
     browser_obs_obj = None
-    if decision.action_decision and decision.action_decision.requires_world_access:
+    if action and action.requires_world_access:
         from backend.services.world_access_manager import WorldAccessManager
-        if decision.action_decision.action in ["BROWSER_READ", "BROWSER_INTERACT"]:
+        if action.action in ["BROWSER_READ", "BROWSER_INTERACT"]:
             from backend.services.browser_controller import BrowserController, BrowserAction
             url_match = re.search(r"https?://[^\s]+", user_input)
             target_url = url_match.group(0) if url_match else "https://duckduckgo.com"
-            b_action = BrowserAction(action_type=decision.action_decision.action, url=target_url)
+            b_action = BrowserAction(action_type=action.action, url=target_url)
             browser_obs_obj = BrowserController.execute_action(b_action)
             evidence_prompt_block = browser_obs_obj.grounded_prompt_block
-        elif decision.action_decision.action == "WEB_RESEARCH":
+        elif action.action == "WEB_RESEARCH":
             from backend.services.research_planner import ResearchPlanner
             research_result_obj = ResearchPlanner.execute_research(user_input)
             evidence_package = research_result_obj.evidence_package
@@ -380,50 +471,127 @@ def chat_stream(req: ChatRequest):
             evidence_prompt_block = research_result_obj.grounded_prompt_block
         else:
             evidence_items, evidence_prompt_block, evidence_package = WorldAccessManager.execute_action_package(
-                decision.action_decision,
-                user_input,
-                req.attachments
+                action, user_input, req.attachments
             )
-    # Computer, Development, Git/GitHub & Persistent Task Execution
+
+        # Apply relevance checks and mode directives for search capabilities
+        if action.action in ["WEB_SEARCH", "WEB_RESEARCH", "WEB_FETCH"]:
+            is_relevant = True
+            if evidence_items:
+                is_relevant = check_evidence_relevance(user_input, evidence_items)
+                
+            if not is_relevant or not evidence_items:
+                evidence_items = []
+                evidence_package = None
+                evidence_prompt_block = (
+                    "\n\n<external_web_content>\n"
+                    "NOTE: Web search returned no relevant results or insufficient verified information about this request.\n"
+                    "</external_web_content>\n\n"
+                    "[CRITICAL DIRECTIVE: You MUST state that you do not have verified records or active web search results to answer this query. Refuse to guess, speculate, or extrapolate. Speak naturally as Saki and explain you couldn't retrieve enough information.]"
+                )
+            else:
+                is_verification = decision.query_intent == "verification" or any(re.search(pat, user_input.lower()) for pat in [
+                    r"\b(verify|confirm|check whether|check if)\b",
+                    r"\bis this correct\b",
+                    r"\bis this true\b",
+                    r"\bgive me verified\b"
+                ])
+                if is_verification:
+                    evidence_prompt_block = (
+                        f"{evidence_prompt_block}\n\n"
+                        f"[VERIFICATION DIRECTIVE: The user explicitly asked you to verify information. "
+                        f"Perform deep source comparison, point out any conflicting data, cite the source domains, "
+                        f"and provide a verified response based strictly on the retrieved sources.]"
+                    )
+                else:
+                    evidence_prompt_block = (
+                        f"{evidence_prompt_block}\n\n"
+                        f"[FACTUAL DIRECTIVE: Answer naturally as Saki using the facts from the retrieved sources. "
+                        f"Keep it direct and conversational. Do not mention that you did verification unless specifically requested.]"
+                    )
+
+    if evidence_prompt_block:
+        prompt_input = prompt_input + evidence_prompt_block
+    result.evidence_items = evidence_items
+    result.evidence_package = evidence_package
+    result.research_result_obj = research_result_obj
+    result.browser_obs_obj = browser_obs_obj
+
+    # 2. Computer / Development / Git (only if CODING action)
     computer_obs_obj = None
     dev_task_obj = None
     git_telemetry_obj = None
     persistent_task_obj = None
-    if decision.action_decision and decision.action_decision.action == "CODING":
+    if action and action.action == "CODING":
         from backend.services.computer_controller import ComputerController, ComputerAction
         from backend.services.development_capability import DevelopmentCapability
         from backend.services.git_github_capability import GitGitHubCapability
-        c_action = ComputerAction(action_type="INSPECT_WORKSPACE", target_path=r"c:\Users\gurus\work\saki")
+        c_action = ComputerAction(action_type="INSPECT_WORKSPACE", target_path=settings.WORKSPACE_ROOT)
         computer_obs_obj = ComputerController.execute_action(c_action)
         dev_task_obj = DevelopmentCapability.execute_development_task(user_input)
         git_telemetry_obj = GitGitHubCapability.execute_action("GIT_STATUS")
+    result.computer_obs_obj = computer_obs_obj
+    result.dev_task_obj = dev_task_obj
+    result.git_telemetry_obj = git_telemetry_obj
 
+    # 3. Persistent Tasks (only if keywords match)
     if any(k in user_input.lower() for k in ["schedule task", "monitor ci", "remind me", "recurring task"]):
         from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
         persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
+    result.persistent_task_obj = persistent_task_obj
 
-    # Personal Context, Unified Knowledge RAG, Knowledge Fusion, Knowledge Graph, Web Intelligence, Adaptive Intelligence & Autonomous Workflow Evaluation
+    # 4. Knowledge subsystems â€” GATED: only run for non-trivial queries
     from backend.services.personal_context import PersonalContextEngine, AttentionPolicy
-    from backend.services.unified_knowledge import UnifiedKnowledgeEngine
-    from backend.services.knowledge_fusion import KnowledgeFusionEngine
-    from backend.services.knowledge_graph import KnowledgeGraphEngine
-    from backend.services.web_intelligence import WebIntelligenceCapability
-    from backend.services.adaptive_intelligence import AdaptiveIntelligenceEngine
-    from backend.services.autonomous_workflow import AutonomousWorkflowEngine
     active_ctx_items = PersonalContextEngine.select_minimal_context(user_input)
     attn_mode = PersonalContextEngine.evaluate_proactive_attention(AttentionPolicy())
-    unified_rag_pkg = UnifiedKnowledgeEngine.retrieve_knowledge(user_input)
-    fused_knowledge_pkg = KnowledgeFusionEngine.fuse_knowledge(unified_rag_pkg)
-    knowledge_graph_pkg = KnowledgeGraphEngine.traverse_subgraph(user_input, fused_knowledge_pkg)
-    web_intel_res = WebIntelligenceCapability.execute_web_intelligence(user_input) if any(k in user_input.lower() for k in ["search", "web", "latest", "doc", "fastapi"]) else None
-    adaptive_intel_res = AdaptiveIntelligenceEngine.process_user_input(user_input)
+    result.active_ctx_items = active_ctx_items
+    result.attn_mode = attn_mode
+
+    # Only run heavyweight RAG/fusion/graph for queries that actually need knowledge
+    user_lower = user_input.lower()
+    needs_knowledge = (action and action.action in ["CODING", "WEB_SEARCH", "WEB_RESEARCH", "WEB_FETCH"]) or \
+        any(k in user_lower for k in ["how", "what", "why", "explain", "compare", "build", "fix", "error", "implement", "design", "architecture"])
+
+    unified_rag_pkg = None
+    fused_knowledge_pkg = None
+    knowledge_graph_pkg = None
+    web_intel_res = None
+    adaptive_intel_res = None
     wf_telemetry = None
-    if any(k in user_input.lower() for k in ["workflow", "prepare a fix", "multi-step"]):
+
+    if needs_knowledge:
+        from backend.services.unified_knowledge import UnifiedKnowledgeEngine
+        from backend.services.knowledge_fusion import KnowledgeFusionEngine
+        from backend.services.knowledge_graph import KnowledgeGraphEngine
+        unified_rag_pkg = UnifiedKnowledgeEngine.retrieve_knowledge(user_input)
+        fused_knowledge_pkg = KnowledgeFusionEngine.fuse_knowledge(unified_rag_pkg)
+        knowledge_graph_pkg = KnowledgeGraphEngine.traverse_subgraph(user_input, fused_knowledge_pkg)
+
+    if any(k in user_lower for k in ["search", "web", "latest", "doc", "fastapi"]):
+        from backend.services.web_intelligence import WebIntelligenceCapability
+        web_intel_res = WebIntelligenceCapability.execute_web_intelligence(user_input)
+
+    # Adaptive intelligence â€” lightweight, always runs
+    from backend.services.adaptive_intelligence import AdaptiveIntelligenceEngine
+    adaptive_intel_res = AdaptiveIntelligenceEngine.process_user_input(user_input)
+
+    # Autonomous workflows â€” only if keywords match
+    if any(k in user_lower for k in ["workflow", "prepare a fix", "multi-step"]):
+        from backend.services.autonomous_workflow import AutonomousWorkflowEngine
         created_wf = AutonomousWorkflowEngine.create_workflow(user_input)
         wf_telemetry = AutonomousWorkflowEngine.execute_workflow(created_wf.workflow_id)
 
+    result.unified_rag_pkg = unified_rag_pkg
+    result.fused_knowledge_pkg = fused_knowledge_pkg
+    result.knowledge_graph_pkg = knowledge_graph_pkg
+    result.web_intel_res = web_intel_res
+    result.adaptive_intel_res = adaptive_intel_res
+    result.wf_telemetry = wf_telemetry
+
+    # Build prompt and plan
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
     plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
+    result.plan = plan
 
     memory_context = build_smart_memory_context(
         memory=memory,
@@ -434,17 +602,29 @@ def chat_stream(req: ChatRequest):
     )
 
     prompt = build_orchestrated_prompt(decision, plan, prompt_input, memory_context, history_context)
-    selected_model = decision.selected_model
+    result.prompt = prompt
+    result.selected_model = decision.selected_model
 
-    # Image attachments for Gemma 3
+    # Extract image paths for vision models
     image_paths = []
     if req.attachments:
         for att in req.attachments:
             if att.get("path") and (
-                att.get("type") == "image" 
+                att.get("type") == "image"
                 or str(att.get("name", "")).lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"))
             ):
                 image_paths.append(att["path"])
+    result.image_paths = image_paths
+
+    return result
+
+
+# -------------------------
+# STREAMING CHAT
+# -------------------------
+@router.post("/chat/stream")
+def chat_stream(req: ChatRequest):
+    p = _execute_chat_pipeline(req)
 
     def generate():
         full_response = ""
@@ -452,18 +632,17 @@ def chat_stream(req: ChatRequest):
         prefix_checked = False
 
         for chunk in stream_model(
-            prompt, 
-            model=selected_model, 
+            p.prompt,
+            model=p.selected_model,
             keep_alive=settings.MODEL_KEEP_ALIVE_SESSION,
-            images=image_paths if image_paths else None
+            images=p.image_paths if p.image_paths else None
         ):
             full_response += chunk
-            
-            # Initial speaker prefix filter (buffer first ~15 chars to strip Saki:, Assistant:, etc.)
+
             if not prefix_checked:
                 prefix_buffer += chunk
                 if len(prefix_buffer) > 20 or "\n" in prefix_buffer or " " in prefix_buffer:
-                    cleaned_buffer = re.sub(r"^(?:saki|assistant|ai|\[saki\]|\[assistant\])\s*[-:：]?\s*", "", prefix_buffer, flags=re.IGNORECASE)
+                    cleaned_buffer = re.sub(r"^(?:saki|assistant|ai|\[saki\]|\[assistant\])\s*[-:ï¼š]?\s*", "", prefix_buffer, flags=re.IGNORECASE)
                     prefix_checked = True
                     if cleaned_buffer:
                         yield cleaned_buffer
@@ -471,182 +650,84 @@ def chat_stream(req: ChatRequest):
                 yield chunk
 
         if not prefix_checked and prefix_buffer:
-            cleaned_buffer = re.sub(r"^(?:saki|assistant|ai|\[saki\]|\[assistant\])\s*[-:：]?\s*", "", prefix_buffer, flags=re.IGNORECASE)
+            cleaned_buffer = re.sub(r"^(?:saki|assistant|ai|\[saki\]|\[assistant\])\s*[-:ï¼š]?\s*", "", prefix_buffer, flags=re.IGNORECASE)
             if cleaned_buffer:
                 yield cleaned_buffer
 
-        # Fallback search if helpless
         if is_helpless_response(full_response):
-            results = safe_search(user_input)
+            results = safe_search(p.user_input)
             if results:
-                follow_prompt = f"Answer naturally as Saki using these search results:\n{results}\nQuery: {user_input}\nSaki:"
+                follow_prompt = f"Answer naturally as Saki using these search results:\n{results}\nQuery: {p.user_input}\nSaki:"
                 for chunk in stream_model(follow_prompt, model=settings.MODEL_QWEN3, keep_alive=settings.MODEL_KEEP_ALIVE_SESSION):
                     full_response += chunk
                     yield chunk
 
-        # Post-evaluation and cleansing
-        eval_result = evaluate_response(full_response, plan=plan, mode=decision.conversation_mode)
+        eval_result = evaluate_response(full_response, plan=p.plan, mode=p.decision.conversation_mode)
         cleaned_response = eval_result.repaired_text
-        
-        # Persist memory, awareness, and conversation history
-        awareness_dict = decision.awareness.dict() if decision.awareness else None
-        update_memory(memory, user_input, cleaned_response, awareness_dict=awareness_dict)
-        append_message_to_conversation(conv_id, user_input, cleaned_response, req.attachments)
+
+        awareness_dict = p.decision.awareness.dict() if p.decision.awareness else None
+        update_memory(p.memory, p.user_input, cleaned_response, awareness_dict=awareness_dict)
+        append_message_to_conversation(p.conv_id, p.user_input, cleaned_response, p.attachments)
 
     return StreamingResponse(generate(), media_type="text/plain")
 
 
+
+
 @router.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
-    user_input = req.message.strip()
-    conv_id = req.conversation_id or "default-session"
-    attachment_context = get_attachment_context(req)
-    prompt_input = user_input + attachment_context
-
-    memory = load_memory()
-    history_context = format_history_context(memory.get("conversation_history", []))
-
-    correction = detect_user_correction(user_input)
-    if correction:
-        from backend.services.memory_service import _upsert_memory
-        _upsert_memory(memory, correction)
-
-    prev_awareness_raw = memory.get("awareness")
-    prev_awareness = SakiAwareness(**prev_awareness_raw) if prev_awareness_raw else None
-
-    decision = SakiModelOrchestrator.classify_request(
-        query=user_input,
-        attachments=req.attachments,
-        previous_awareness=prev_awareness,
-        memory_data=memory
-    )
-
-    # World Access, Research & Browser Automation Subsystem
-    evidence_items = []
-    evidence_prompt_block = ""
-    evidence_package = None
-    research_result_obj = None
-    browser_obs_obj = None
-    if decision.action_decision and decision.action_decision.requires_world_access:
-        from backend.services.world_access_manager import WorldAccessManager
-        if decision.action_decision.action in ["BROWSER_READ", "BROWSER_INTERACT"]:
-            from backend.services.browser_controller import BrowserController, BrowserAction
-            url_match = re.search(r"https?://[^\s]+", user_input)
-            target_url = url_match.group(0) if url_match else "https://duckduckgo.com"
-            b_action = BrowserAction(action_type=decision.action_decision.action, url=target_url)
-            browser_obs_obj = BrowserController.execute_action(b_action)
-            evidence_prompt_block = browser_obs_obj.grounded_prompt_block
-        elif decision.action_decision.action == "WEB_RESEARCH":
-            from backend.services.research_planner import ResearchPlanner
-            research_result_obj = ResearchPlanner.execute_research(user_input)
-            evidence_package = research_result_obj.evidence_package
-            evidence_items = evidence_package.evidence_items if evidence_package else []
-            evidence_prompt_block = research_result_obj.grounded_prompt_block
-        else:
-            evidence_items, evidence_prompt_block, evidence_package = WorldAccessManager.execute_action_package(
-                decision.action_decision,
-                user_input,
-                req.attachments
-            )
-        if evidence_prompt_block:
-            prompt_input = prompt_input + evidence_prompt_block
-
-    # Computer, Development, Git/GitHub & Persistent Task Execution
-    computer_obs_obj = None
-    dev_task_obj = None
-    git_telemetry_obj = None
-    persistent_task_obj = None
-    if decision.action_decision and decision.action_decision.action == "CODING":
-        from backend.services.computer_controller import ComputerController, ComputerAction
-        from backend.services.development_capability import DevelopmentCapability
-        from backend.services.git_github_capability import GitGitHubCapability
-        c_action = ComputerAction(action_type="INSPECT_WORKSPACE", target_path=r"c:\Users\gurus\work\saki")
-        computer_obs_obj = ComputerController.execute_action(c_action)
-        dev_task_obj = DevelopmentCapability.execute_development_task(user_input)
-        git_telemetry_obj = GitGitHubCapability.execute_action("GIT_STATUS")
-
-    if any(k in user_input.lower() for k in ["schedule task", "monitor ci", "remind me", "recurring task"]):
-        from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
-        persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
-
-    # Personal Context, Unified Knowledge RAG, Knowledge Fusion, Knowledge Graph, Web Intelligence, Adaptive Intelligence & Autonomous Workflow Evaluation
-    from backend.services.personal_context import PersonalContextEngine, AttentionPolicy
-    from backend.services.unified_knowledge import UnifiedKnowledgeEngine
-    from backend.services.knowledge_fusion import KnowledgeFusionEngine
-    from backend.services.knowledge_graph import KnowledgeGraphEngine
-    from backend.services.web_intelligence import WebIntelligenceCapability
-    from backend.services.adaptive_intelligence import AdaptiveIntelligenceEngine
-    from backend.services.autonomous_workflow import AutonomousWorkflowEngine
-    active_ctx_items = PersonalContextEngine.select_minimal_context(user_input)
-    attn_mode = PersonalContextEngine.evaluate_proactive_attention(AttentionPolicy())
-    unified_rag_pkg = UnifiedKnowledgeEngine.retrieve_knowledge(user_input)
-    fused_knowledge_pkg = KnowledgeFusionEngine.fuse_knowledge(unified_rag_pkg)
-    knowledge_graph_pkg = KnowledgeGraphEngine.traverse_subgraph(user_input, fused_knowledge_pkg)
-    web_intel_res = WebIntelligenceCapability.execute_web_intelligence(user_input) if any(k in user_input.lower() for k in ["search", "web", "latest", "doc", "fastapi"]) else None
-    adaptive_intel_res = AdaptiveIntelligenceEngine.process_user_input(user_input)
-    wf_telemetry = None
-    if any(k in user_input.lower() for k in ["workflow", "prepare a fix", "multi-step"]):
-        created_wf = AutonomousWorkflowEngine.create_workflow(user_input)
-        wf_telemetry = AutonomousWorkflowEngine.execute_workflow(created_wf.workflow_id)
-
-
-
-
-
-    user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
-
-    plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
-
-    memory_context = build_smart_memory_context(
-        memory=memory,
-        query=user_input,
-        limit=settings.MEMORY_CONTEXT_LIMIT,
-        active_mode=decision.conversation_mode,
-        active_project=decision.awareness.current_project if decision.awareness else None
-    )
-
-    prompt = build_orchestrated_prompt(decision, plan, prompt_input, memory_context, history_context)
-    selected_model = decision.selected_model
-
-    image_paths = []
-    if req.attachments:
-        for att in req.attachments:
-            if att.get("path") and (
-                att.get("type") == "image" 
-                or str(att.get("name", "")).lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"))
-            ):
-                image_paths.append(att["path"])
+    p = _execute_chat_pipeline(req)
 
     response = call_model(
-        prompt, 
-        model=selected_model, 
+        p.prompt,
+        model=p.selected_model,
         keep_alive=settings.MODEL_KEEP_ALIVE_SESSION,
-        images=image_paths if image_paths else None
+        images=p.image_paths if p.image_paths else None
     )
 
     if is_helpless_response(response):
-        results = safe_search(user_input)
+        results = safe_search(p.user_input)
         if results:
             response = call_model(
-                f"Answer naturally as Saki using these search results:\n{results}\nQuery: {user_input}\nSaki:",
+                f"Answer naturally as Saki using these search results:\n{results}\nQuery: {p.user_input}\nSaki:",
                 model=settings.MODEL_QWEN3
             )
 
-    eval_result = evaluate_response(response, plan=plan, mode=decision.conversation_mode)
+    eval_result = evaluate_response(response, plan=p.plan, mode=p.decision.conversation_mode)
     final_response = eval_result.repaired_text
 
-    awareness_dict = decision.awareness.dict() if decision.awareness else None
-    update_memory(memory, user_input, final_response, awareness_dict=awareness_dict)
-    append_message_to_conversation(conv_id, user_input, final_response, req.attachments)
-
-    # Memory Admission Evaluation
+    # Memory Admission Evaluation (BEFORE persisting, so decision can influence storage)
     from backend.services.memory_admission import MemoryAdmissionEngine, MemoryCandidate, SOURCE_USER, TYPE_PERSONAL_MEMORY
     adm_candidate = MemoryCandidate(
-        content=user_input,
-        memory_type=TYPE_PERSONAL_MEMORY if any(p in user_input.lower() for p in ["remember", "prefer", "like", "building"]) else "WEB_EVIDENCE",
-        source_type=SOURCE_USER if any(p in user_input.lower() for p in ["remember", "prefer", "like", "building"]) else "WEB"
+        content=p.user_input,
+        memory_type=TYPE_PERSONAL_MEMORY if any(kw in p.user_input.lower() for kw in ["remember", "prefer", "like", "building"]) else "WEB_EVIDENCE",
+        source_type=SOURCE_USER if any(kw in p.user_input.lower() for kw in ["remember", "prefer", "like", "building"]) else "WEB"
     )
     adm_decision = MemoryAdmissionEngine.evaluate_candidate(adm_candidate)
+
+    # Persist memory, awareness, and conversation history
+    awareness_dict = p.decision.awareness.dict() if p.decision.awareness else None
+    update_memory(p.memory, p.user_input, final_response, awareness_dict=awareness_dict)
+    append_message_to_conversation(p.conv_id, p.user_input, final_response, p.attachments)
+
+    # Alias pipeline results for readability
+    decision = p.decision
+    evidence_items = p.evidence_items or []
+    evidence_package = p.evidence_package
+    research_result_obj = p.research_result_obj
+    browser_obs_obj = p.browser_obs_obj
+    computer_obs_obj = p.computer_obs_obj
+    dev_task_obj = p.dev_task_obj
+    git_telemetry_obj = p.git_telemetry_obj
+    persistent_task_obj = p.persistent_task_obj
+    active_ctx_items = p.active_ctx_items or []
+    attn_mode = p.attn_mode
+    unified_rag_pkg = p.unified_rag_pkg
+    fused_knowledge_pkg = p.fused_knowledge_pkg
+    knowledge_graph_pkg = p.knowledge_graph_pkg
+    web_intel_res = p.web_intel_res
+    adaptive_intel_res = p.adaptive_intel_res
+    wf_telemetry = p.wf_telemetry
 
     return ChatResponse(
         response=final_response,
@@ -655,13 +736,13 @@ def chat(req: ChatRequest):
         routing=decision.dict(),
         awareness=decision.awareness.dict() if decision.awareness else None,
         plan=ResponsePlanSchema(
-            goal=plan.goal,
-            tone=plan.tone,
-            depth=plan.depth,
-            acknowledge_emotion=plan.acknowledge_emotion,
-            use_humor=plan.use_humor,
-            ask_question=plan.ask_question,
-            technical_detail=plan.technical_detail
+            goal=p.plan.goal,
+            tone=p.plan.tone,
+            depth=p.plan.depth,
+            acknowledge_emotion=p.plan.acknowledge_emotion,
+            use_humor=p.plan.use_humor,
+            ask_question=p.plan.ask_question,
+            technical_detail=p.plan.technical_detail
         ),
         evaluation=EvaluationResultSchema(
             passed=eval_result.passed,
@@ -807,14 +888,14 @@ def chat(req: ChatRequest):
             feedback_type=adaptive_intel_res.feedback_type,
             admitted_preferences=[
                 PreferenceSchema(
-                    preference_id=p.preference_id,
-                    category=p.category,
-                    value=p.value,
-                    source=p.source,
-                    confidence=p.confidence,
-                    scope=p.scope,
-                    status=p.status
-                ) for p in adaptive_intel_res.admitted_preferences
+                    preference_id=p_item.preference_id,
+                    category=p_item.category,
+                    value=p_item.value,
+                    source=p_item.source,
+                    confidence=p_item.confidence,
+                    scope=p_item.scope,
+                    status=p_item.status
+                ) for p_item in adaptive_intel_res.admitted_preferences
             ],
             active_candidates=[
                 LearningCandidateSchema(
@@ -848,6 +929,8 @@ def chat(req: ChatRequest):
             details=wf_telemetry.details if wf_telemetry else "No active workflow."
         ) if wf_telemetry else None
     )
+
+
 
 
 
