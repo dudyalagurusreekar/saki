@@ -272,6 +272,52 @@ class ResearchResultSchema(BaseModel):
 
 
 # -------------------------
+# MEMORY ADMISSION SCHEMAS
+# -------------------------
+class MemoryCandidateSchema(BaseModel):
+    candidate_id: str
+    content: str
+    memory_type: str = "WEB_EVIDENCE"
+    source_type: str = "WEB"
+    source_id: Optional[str] = None
+    confidence: float = 0.90
+    importance: str = "NORMAL"
+    privacy_classification: str = "PUBLIC"
+    created_at: float = Field(default_factory=time.time)
+
+
+class MemoryAdmissionDecisionSchema(BaseModel):
+    decision: str = "REJECT"  # ADMIT, REJECT, DEFER, REQUIRE_CONFIRMATION
+    reason: str
+    memory_type: str = "WEB_EVIDENCE"
+    confidence: float = 0.90
+    importance: str = "NORMAL"
+    expiration: str = "EPHEMERAL"
+    conflict_status: str = "NO_CONFLICT"
+
+
+class MemoryConflictSchema(BaseModel):
+    memory_id: str
+    old_value: str
+    new_value: str
+    conflict_type: str = "DIRECT_CONFLICT"
+    resolution_status: str = "UNRESOLVED"
+
+
+class MemoryRecordSchema(BaseModel):
+    memory_id: str
+    content: str
+    type: str = "PERSONAL_MEMORY"
+    source: str = "USER"
+    confidence: float = 0.95
+    importance: str = "NORMAL"
+    privacy_level: str = "PRIVATE"
+    created_at: float = Field(default_factory=time.time)
+    status: str = "ACTIVE"
+    knowledge_status: str = "VERIFIED"
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -289,6 +335,8 @@ class ChatResponse(BaseModel):
     world_access_evidence: Optional[List[EvidenceItemSchema]] = None
     evidence_package: Optional[EvidencePackageSchema] = None
     research_result: Optional[ResearchResultSchema] = None
+    memory_admission: Optional[MemoryAdmissionDecisionSchema] = None
+
 
 
 

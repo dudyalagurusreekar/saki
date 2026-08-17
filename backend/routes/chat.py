@@ -516,6 +516,15 @@ def chat(req: ChatRequest):
     update_memory(memory, user_input, final_response, awareness_dict=awareness_dict)
     append_message_to_conversation(conv_id, user_input, final_response, req.attachments)
 
+    # Memory Admission Evaluation
+    from backend.services.memory_admission import MemoryAdmissionEngine, MemoryCandidate, SOURCE_USER, TYPE_PERSONAL_MEMORY
+    adm_candidate = MemoryCandidate(
+        content=user_input,
+        memory_type=TYPE_PERSONAL_MEMORY if any(p in user_input.lower() for p in ["remember", "prefer", "like", "building"]) else "WEB_EVIDENCE",
+        source_type=SOURCE_USER if any(p in user_input.lower() for p in ["remember", "prefer", "like", "building"]) else "WEB"
+    )
+    adm_decision = MemoryAdmissionEngine.evaluate_candidate(adm_candidate)
+
     return ChatResponse(
         response=final_response,
         intent=decision.task_type,
@@ -539,8 +548,10 @@ def chat(req: ChatRequest):
         action_decision=decision.action_decision.dict() if decision.action_decision else None,
         world_access_evidence=[EvidenceItemSchema(**e.dict()) for e in evidence_items] if evidence_items else None,
         evidence_package=EvidencePackageSchema(**evidence_package.dict()) if evidence_package else None,
-        research_result=ResearchResultSchema(**research_result_obj.dict()) if research_result_obj else None
+        research_result=ResearchResultSchema(**research_result_obj.dict()) if research_result_obj else None,
+        memory_admission=MemoryAdmissionDecisionSchema(**adm_decision.dict()) if adm_decision else None
     )
+
 
 
 
