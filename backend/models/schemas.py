@@ -573,6 +573,17 @@ class KnowledgeGraphPackageSchema(BaseModel):
 
 
 # -------------------------
+# WEB INTELLIGENCE SCHEMAS
+# -------------------------
+class WebIntelligenceTelemetrySchema(BaseModel):
+    queries_executed: List[str] = Field(default_factory=list)
+    primary_sources_found: int = 0
+    browser_fallback_used: bool = False
+    freshness_status: str = "CURRENT"
+    details: str = "Web intelligence execution completed."
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -600,6 +611,8 @@ class ChatResponse(BaseModel):
     unified_knowledge: Optional[UnifiedKnowledgePackageSchema] = None
     knowledge_fusion: Optional[FusedKnowledgePackageSchema] = None
     knowledge_graph: Optional[KnowledgeGraphPackageSchema] = None
+    web_intelligence: Optional[WebIntelligenceTelemetrySchema] = None
+
 
 
 
