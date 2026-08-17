@@ -372,18 +372,20 @@ def chat_stream(req: ChatRequest):
         from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
         persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
 
-    # Personal Context, Unified Knowledge RAG, Knowledge Fusion, Knowledge Graph & Web Intelligence Evaluation
+    # Personal Context, Unified Knowledge RAG, Knowledge Fusion, Knowledge Graph, Web Intelligence & Adaptive Intelligence Evaluation
     from backend.services.personal_context import PersonalContextEngine, AttentionPolicy
     from backend.services.unified_knowledge import UnifiedKnowledgeEngine
     from backend.services.knowledge_fusion import KnowledgeFusionEngine
     from backend.services.knowledge_graph import KnowledgeGraphEngine
     from backend.services.web_intelligence import WebIntelligenceCapability
+    from backend.services.adaptive_intelligence import AdaptiveIntelligenceEngine
     active_ctx_items = PersonalContextEngine.select_minimal_context(user_input)
     attn_mode = PersonalContextEngine.evaluate_proactive_attention(AttentionPolicy())
     unified_rag_pkg = UnifiedKnowledgeEngine.retrieve_knowledge(user_input)
     fused_knowledge_pkg = KnowledgeFusionEngine.fuse_knowledge(unified_rag_pkg)
     knowledge_graph_pkg = KnowledgeGraphEngine.traverse_subgraph(user_input, fused_knowledge_pkg)
     web_intel_res = WebIntelligenceCapability.execute_web_intelligence(user_input) if any(k in user_input.lower() for k in ["search", "web", "latest", "doc", "fastapi"]) else None
+    adaptive_intel_res = AdaptiveIntelligenceEngine.process_user_input(user_input)
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
     plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
@@ -532,18 +534,20 @@ def chat(req: ChatRequest):
         from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
         persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
 
-    # Personal Context, Unified Knowledge RAG, Knowledge Fusion, Knowledge Graph & Web Intelligence Evaluation
+    # Personal Context, Unified Knowledge RAG, Knowledge Fusion, Knowledge Graph, Web Intelligence & Adaptive Intelligence Evaluation
     from backend.services.personal_context import PersonalContextEngine, AttentionPolicy
     from backend.services.unified_knowledge import UnifiedKnowledgeEngine
     from backend.services.knowledge_fusion import KnowledgeFusionEngine
     from backend.services.knowledge_graph import KnowledgeGraphEngine
     from backend.services.web_intelligence import WebIntelligenceCapability
+    from backend.services.adaptive_intelligence import AdaptiveIntelligenceEngine
     active_ctx_items = PersonalContextEngine.select_minimal_context(user_input)
     attn_mode = PersonalContextEngine.evaluate_proactive_attention(AttentionPolicy())
     unified_rag_pkg = UnifiedKnowledgeEngine.retrieve_knowledge(user_input)
     fused_knowledge_pkg = KnowledgeFusionEngine.fuse_knowledge(unified_rag_pkg)
     knowledge_graph_pkg = KnowledgeGraphEngine.traverse_subgraph(user_input, fused_knowledge_pkg)
     web_intel_res = WebIntelligenceCapability.execute_web_intelligence(user_input) if any(k in user_input.lower() for k in ["search", "web", "latest", "doc", "fastapi"]) else None
+    adaptive_intel_res = AdaptiveIntelligenceEngine.process_user_input(user_input)
 
 
 
@@ -756,7 +760,32 @@ def chat(req: ChatRequest):
             browser_fallback_used=web_intel_res.browser_fallback_used,
             freshness_status=web_intel_res.freshness_status,
             details=web_intel_res.details
-        ) if web_intel_res else None
+        ) if web_intel_res else None,
+        adaptive_intelligence=AdaptiveIntelligenceTelemetrySchema(
+            feedback_type=adaptive_intel_res.feedback_type,
+            admitted_preferences=[
+                PreferenceSchema(
+                    preference_id=p.preference_id,
+                    category=p.category,
+                    value=p.value,
+                    source=p.source,
+                    confidence=p.confidence,
+                    scope=p.scope,
+                    status=p.status
+                ) for p in adaptive_intel_res.admitted_preferences
+            ],
+            active_candidates=[
+                LearningCandidateSchema(
+                    candidate_id=c.candidate_id,
+                    category=c.category,
+                    proposed_change=c.proposed_change,
+                    source=c.source,
+                    confidence=c.confidence,
+                    status=c.status
+                ) for c in adaptive_intel_res.active_candidates
+            ],
+            details=adaptive_intel_res.details
+        ) if adaptive_intel_res else None
     )
 
 

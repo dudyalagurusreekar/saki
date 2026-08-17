@@ -584,6 +584,35 @@ class WebIntelligenceTelemetrySchema(BaseModel):
 
 
 # -------------------------
+# ADAPTIVE INTELLIGENCE SCHEMAS
+# -------------------------
+class PreferenceSchema(BaseModel):
+    preference_id: str
+    category: str
+    value: str
+    source: str = "USER_EXPLICIT"
+    confidence: float = 1.0
+    scope: str = "GLOBAL"
+    status: str = "ACTIVE"
+
+
+class LearningCandidateSchema(BaseModel):
+    candidate_id: str
+    category: str
+    proposed_change: str
+    source: str
+    confidence: float = 1.0
+    status: str = "PROPOSED"
+
+
+class AdaptiveIntelligenceTelemetrySchema(BaseModel):
+    feedback_type: Optional[str] = None
+    admitted_preferences: List[PreferenceSchema] = Field(default_factory=list)
+    active_candidates: List[LearningCandidateSchema] = Field(default_factory=list)
+    details: str = "Adaptive intelligence evaluation completed."
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -612,6 +641,8 @@ class ChatResponse(BaseModel):
     knowledge_fusion: Optional[FusedKnowledgePackageSchema] = None
     knowledge_graph: Optional[KnowledgeGraphPackageSchema] = None
     web_intelligence: Optional[WebIntelligenceTelemetrySchema] = None
+    adaptive_intelligence: Optional[AdaptiveIntelligenceTelemetrySchema] = None
+
 
 
 
