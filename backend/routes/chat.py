@@ -6,7 +6,37 @@ import uuid
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, UploadFile, File, Query
 from fastapi.responses import StreamingResponse, JSONResponse
-from backend.models.schemas import ChatRequest, ChatResponse, ResponsePlanSchema, EvaluationResultSchema
+from backend.models.schemas import (
+    ChatRequest,
+    ChatResponse,
+    ResponsePlanSchema,
+    EvaluationResultSchema,
+    SakiAwarenessSchema,
+    EvidenceItemSchema,
+    EvidencePackageSchema,
+    ResearchResultSchema,
+    BrowserObservationSchema,
+    ComputerObservationSchema,
+    DevelopmentTaskSchema,
+    GitGitHubTelemetrySchema,
+    SakiTaskSchema,
+    PersonalContextTelemetrySchema,
+    UnifiedKnowledgePackageSchema,
+    KnowledgeCandidateSchema,
+    FusedKnowledgePackageSchema,
+    FusedClaimSchema,
+    KnowledgeGraphPackageSchema,
+    KnowledgeNodeSchema,
+    KnowledgeEdgeSchema,
+    WebIntelligenceTelemetrySchema,
+    AdaptiveIntelligenceTelemetrySchema,
+    PreferenceSchema,
+    LearningCandidateSchema,
+    WorkflowTelemetrySchema,
+    SakiWorkflowSchema,
+    WorkflowStepSchema
+)
+
 from backend.services.ai_service import call_model, stream_model, unload_model
 from backend.services.orchestrator import SakiModelOrchestrator, RoutingDecision
 from backend.services.emotional_intelligence import SakiAwareness
@@ -642,7 +672,8 @@ def chat(req: ChatRequest):
         world_access_evidence=[EvidenceItemSchema(**e.dict()) for e in evidence_items] if evidence_items else None,
         evidence_package=EvidencePackageSchema(**evidence_package.dict()) if evidence_package else None,
         research_result=ResearchResultSchema(**research_result_obj.dict()) if research_result_obj else None,
-        memory_admission=MemoryAdmissionDecisionSchema(**adm_decision.dict()) if adm_decision else None,
+        memory_admission=adm_decision.dict() if adm_decision and hasattr(adm_decision, "dict") else None,
+
         browser_observation=BrowserObservationSchema(
             url=browser_obs_obj.url,
             title=browser_obs_obj.title,
