@@ -327,14 +327,22 @@ def chat_stream(req: ChatRequest):
         memory_data=memory
     )
 
-    # World Access Execution & Research Subsystem
+    # World Access, Research & Browser Automation Subsystem
     evidence_items = []
     evidence_prompt_block = ""
     evidence_package = None
     research_result_obj = None
+    browser_obs_obj = None
     if decision.action_decision and decision.action_decision.requires_world_access:
         from backend.services.world_access_manager import WorldAccessManager
-        if decision.action_decision.action == "WEB_RESEARCH":
+        if decision.action_decision.action in ["BROWSER_READ", "BROWSER_INTERACT"]:
+            from backend.services.browser_controller import BrowserController, BrowserAction
+            url_match = re.search(r"https?://[^\s]+", user_input)
+            target_url = url_match.group(0) if url_match else "https://duckduckgo.com"
+            b_action = BrowserAction(action_type=decision.action_decision.action, url=target_url)
+            browser_obs_obj = BrowserController.execute_action(b_action)
+            evidence_prompt_block = browser_obs_obj.grounded_prompt_block
+        elif decision.action_decision.action == "WEB_RESEARCH":
             from backend.services.research_planner import ResearchPlanner
             research_result_obj = ResearchPlanner.execute_research(user_input)
             evidence_package = research_result_obj.evidence_package
@@ -448,14 +456,22 @@ def chat(req: ChatRequest):
         memory_data=memory
     )
 
-    # World Access Execution & Research Subsystem
+    # World Access, Research & Browser Automation Subsystem
     evidence_items = []
     evidence_prompt_block = ""
     evidence_package = None
     research_result_obj = None
+    browser_obs_obj = None
     if decision.action_decision and decision.action_decision.requires_world_access:
         from backend.services.world_access_manager import WorldAccessManager
-        if decision.action_decision.action == "WEB_RESEARCH":
+        if decision.action_decision.action in ["BROWSER_READ", "BROWSER_INTERACT"]:
+            from backend.services.browser_controller import BrowserController, BrowserAction
+            url_match = re.search(r"https?://[^\s]+", user_input)
+            target_url = url_match.group(0) if url_match else "https://duckduckgo.com"
+            b_action = BrowserAction(action_type=decision.action_decision.action, url=target_url)
+            browser_obs_obj = BrowserController.execute_action(b_action)
+            evidence_prompt_block = browser_obs_obj.grounded_prompt_block
+        elif decision.action_decision.action == "WEB_RESEARCH":
             from backend.services.research_planner import ResearchPlanner
             research_result_obj = ResearchPlanner.execute_research(user_input)
             evidence_package = research_result_obj.evidence_package
@@ -469,6 +485,7 @@ def chat(req: ChatRequest):
             )
         if evidence_prompt_block:
             prompt_input = prompt_input + evidence_prompt_block
+
 
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
@@ -549,7 +566,16 @@ def chat(req: ChatRequest):
         world_access_evidence=[EvidenceItemSchema(**e.dict()) for e in evidence_items] if evidence_items else None,
         evidence_package=EvidencePackageSchema(**evidence_package.dict()) if evidence_package else None,
         research_result=ResearchResultSchema(**research_result_obj.dict()) if research_result_obj else None,
-        memory_admission=MemoryAdmissionDecisionSchema(**adm_decision.dict()) if adm_decision else None
+        memory_admission=MemoryAdmissionDecisionSchema(**adm_decision.dict()) if adm_decision else None,
+        browser_observation=BrowserObservationSchema(
+            url=browser_obs_obj.url,
+            title=browser_obs_obj.title,
+            dom_snippet=browser_obs_obj.dom_snippet,
+            interactive_elements=[e.dict() for e in browser_obs_obj.interactive_elements],
+            text_content=browser_obs_obj.text_content[:500],
+            retrieved_at=browser_obs_obj.retrieved_at,
+            permission_status=browser_obs_obj.permission_status
+        ) if browser_obs_obj else None
     )
 
 

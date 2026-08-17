@@ -318,6 +318,33 @@ class MemoryRecordSchema(BaseModel):
 
 
 # -------------------------
+# BROWSER CONTROLLER SCHEMAS
+# -------------------------
+class BrowserActionSchema(BaseModel):
+    action_type: str = "BROWSER_READ"  # BROWSER_READ, BROWSER_INTERACT
+    url: str
+    target_element: Optional[str] = None
+    input_text: Optional[str] = None
+    user_confirmed: bool = False
+
+
+class BrowserPermissionSchema(BaseModel):
+    mode: str = "READ_ONLY"  # READ_ONLY, INTERACTIVE, BLOCKED
+    allowed_actions: List[str] = Field(default_factory=lambda: ["NAVIGATE", "READ_DOM", "EXTRACT_TEXT"])
+    user_confirmed: bool = False
+
+
+class BrowserObservationSchema(BaseModel):
+    url: str
+    title: str = "Browser Page"
+    dom_snippet: str = ""
+    interactive_elements: List[Dict[str, str]] = Field(default_factory=list)
+    text_content: str = ""
+    retrieved_at: float = Field(default_factory=time.time)
+    permission_status: str = "READ_ONLY"
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -336,6 +363,8 @@ class ChatResponse(BaseModel):
     evidence_package: Optional[EvidencePackageSchema] = None
     research_result: Optional[ResearchResultSchema] = None
     memory_admission: Optional[MemoryAdmissionDecisionSchema] = None
+    browser_observation: Optional[BrowserObservationSchema] = None
+
 
 
 
