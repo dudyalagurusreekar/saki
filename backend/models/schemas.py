@@ -345,6 +345,30 @@ class BrowserObservationSchema(BaseModel):
 
 
 # -------------------------
+# COMPUTER CONTROLLER SCHEMAS
+# -------------------------
+class ComputerActionSchema(BaseModel):
+    action_type: str = "INSPECT_WORKSPACE"  # READ_FILE, INSPECT_WORKSPACE, EDIT_FILE
+    target_path: Optional[str] = None
+    command: Optional[str] = None
+
+
+class ComputerRiskSchema(BaseModel):
+    risk_level: str = "RISK_LOW"  # RISK_LOW, RISK_MEDIUM, RISK_HIGH, RISK_PROHIBITED"
+    is_sandboxed: bool = True
+    reason: str = "Workspace sandboxed operation"
+
+
+class ComputerObservationSchema(BaseModel):
+    action_type: str
+    target_path: str = ""
+    content_snippet: str = ""
+    file_count: int = 0
+    risk_level: str = "RISK_LOW"
+    retrieved_at: float = Field(default_factory=time.time)
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -364,6 +388,8 @@ class ChatResponse(BaseModel):
     research_result: Optional[ResearchResultSchema] = None
     memory_admission: Optional[MemoryAdmissionDecisionSchema] = None
     browser_observation: Optional[BrowserObservationSchema] = None
+    computer_observation: Optional[ComputerObservationSchema] = None
+
 
 
 

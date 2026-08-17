@@ -354,8 +354,12 @@ def chat_stream(req: ChatRequest):
                 user_input,
                 req.attachments
             )
-        if evidence_prompt_block:
-            prompt_input = prompt_input + evidence_prompt_block
+    # Computer Subsystem Execution
+    computer_obs_obj = None
+    if decision.action_decision and decision.action_decision.action == "CODING":
+        from backend.services.computer_controller import ComputerController, ComputerAction
+        c_action = ComputerAction(action_type="INSPECT_WORKSPACE", target_path=r"c:\Users\gurus\work\saki")
+        computer_obs_obj = ComputerController.execute_action(c_action)
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
     plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
@@ -486,9 +490,15 @@ def chat(req: ChatRequest):
         if evidence_prompt_block:
             prompt_input = prompt_input + evidence_prompt_block
 
-
+    # Computer Subsystem Execution
+    computer_obs_obj = None
+    if decision.action_decision and decision.action_decision.action == "CODING":
+        from backend.services.computer_controller import ComputerController, ComputerAction
+        c_action = ComputerAction(action_type="INSPECT_WORKSPACE", target_path=r"c:\Users\gurus\work\saki")
+        computer_obs_obj = ComputerController.execute_action(c_action)
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
+
     plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
 
     memory_context = build_smart_memory_context(
@@ -575,7 +585,15 @@ def chat(req: ChatRequest):
             text_content=browser_obs_obj.text_content[:500],
             retrieved_at=browser_obs_obj.retrieved_at,
             permission_status=browser_obs_obj.permission_status
-        ) if browser_obs_obj else None
+        ) if browser_obs_obj else None,
+        computer_observation=ComputerObservationSchema(
+            action_type=computer_obs_obj.action_type,
+            target_path=computer_obs_obj.target_path,
+            content_snippet=computer_obs_obj.content_snippet,
+            file_count=computer_obs_obj.file_count,
+            risk_level=computer_obs_obj.risk_level,
+            retrieved_at=computer_obs_obj.retrieved_at
+        ) if computer_obs_obj else None
     )
 
 
