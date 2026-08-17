@@ -327,12 +327,13 @@ def chat_stream(req: ChatRequest):
         memory_data=memory
     )
 
-    # World Access Execution (Search / Fetch / Research)
+    # World Access Execution (Search / Fetch / Research & Evidence Intelligence)
     evidence_items = []
     evidence_prompt_block = ""
+    evidence_package = None
     if decision.action_decision and decision.action_decision.requires_world_access:
         from backend.services.world_access_manager import WorldAccessManager
-        evidence_items, evidence_prompt_block = WorldAccessManager.execute_action(
+        evidence_items, evidence_prompt_block, evidence_package = WorldAccessManager.execute_action_package(
             decision.action_decision,
             user_input,
             req.attachments
@@ -439,12 +440,13 @@ def chat(req: ChatRequest):
         memory_data=memory
     )
 
-    # World Access Execution (Search / Fetch / Research)
+    # World Access Execution (Search / Fetch / Research & Evidence Intelligence)
     evidence_items = []
     evidence_prompt_block = ""
+    evidence_package = None
     if decision.action_decision and decision.action_decision.requires_world_access:
         from backend.services.world_access_manager import WorldAccessManager
-        evidence_items, evidence_prompt_block = WorldAccessManager.execute_action(
+        evidence_items, evidence_prompt_block, evidence_package = WorldAccessManager.execute_action_package(
             decision.action_decision,
             user_input,
             req.attachments
@@ -519,7 +521,8 @@ def chat(req: ChatRequest):
             persona_issues=eval_result.persona_issues
         ),
         action_decision=decision.action_decision.dict() if decision.action_decision else None,
-        world_access_evidence=[EvidenceItemSchema(**e.dict()) for e in evidence_items] if evidence_items else None
+        world_access_evidence=[EvidenceItemSchema(**e.dict()) for e in evidence_items] if evidence_items else None,
+        evidence_package=EvidencePackageSchema(**evidence_package.dict()) if evidence_package else None
     )
 
 

@@ -366,3 +366,29 @@ class WorldAccessManager:
         # 3. Format Prompt Injection Isolated XML Block
         prompt_block = EvidenceEngine.format_evidence_prompt_block(evidence_list)
         return evidence_list, prompt_block
+
+    @classmethod
+    def execute_action_package(
+        cls,
+        action_decision: ActionDecision,
+        user_query: str,
+        attachments: Optional[List[Dict[str, Any]]] = None
+    ) -> Tuple[List[EvidenceItem], str, Optional[Any]]:
+        """
+        Executes World Access operation and processes through EvidenceIntelligenceEngine
+        to return normalized evidence items, grounded XML prompt block, and structured EvidencePackage.
+        """
+        evidence_list, prompt_block = cls.execute_action(action_decision, user_query, attachments)
+        if not evidence_list:
+            return [], "", None
+
+        from backend.services.evidence_engine import EvidenceIntelligenceEngine
+        raw_items = [{"title": e.title, "snippet": e.content, "url": e.url, "domain": e.domain} for e in evidence_list]
+        package = EvidenceIntelligenceEngine.process_and_synthesize(
+            query=user_query,
+            raw_items=raw_items,
+            freshness_requirement=action_decision.freshness_requirement
+        )
+        grounded_block = EvidenceIntelligenceEngine.format_grounded_prompt_block(package)
+        return package.evidence_items, grounded_block or prompt_block, package
+

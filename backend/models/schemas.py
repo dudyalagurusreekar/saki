@@ -170,6 +170,57 @@ class EvidenceItemSchema(BaseModel):
 
 
 # -------------------------
+# EVIDENCE INTELLIGENCE SCHEMAS
+# -------------------------
+class SourceModelSchema(BaseModel):
+    source_id: str
+    domain: str
+    url: str
+    title: str
+    source_type: str = "UNKNOWN"
+    publisher: Optional[str] = None
+    retrieved_at: float
+    published_at: Optional[float] = None
+    modified_at: Optional[float] = None
+    canonical_url: str
+    provider: str = "DuckDuckGo"
+    is_primary: str = "UNKNOWN"
+    authority: str = "UNKNOWN"
+
+
+class ClaimModelSchema(BaseModel):
+    claim_id: str
+    text: str
+    source_ids: List[str] = Field(default_factory=list)
+    evidence_ids: List[str] = Field(default_factory=list)
+    support_status: str = "SUPPORTED"
+    directness: str = "DIRECT_SUPPORT"
+    confidence: float = 0.90
+
+
+class ConflictModelSchema(BaseModel):
+    conflict_id: str
+    claim_a: str
+    claim_b: str
+    category: str = "NO_CONFLICT"
+    resolution_hint: Optional[str] = None
+
+
+class EvidencePackageSchema(BaseModel):
+    query: str
+    retrieved_at: float
+    sources: List[SourceModelSchema] = Field(default_factory=list)
+    claims: List[ClaimModelSchema] = Field(default_factory=list)
+    evidence_items: List[EvidenceItemSchema] = Field(default_factory=list)
+    conflicts: List[ConflictModelSchema] = Field(default_factory=list)
+    source_diversity: Dict[str, Any] = Field(default_factory=dict)
+    freshness_summary: str = "CURRENT"
+    quality_summary: str = "HIGH"
+    evidence_status: str = "SUFFICIENT"
+    evidence_policy_version: str = "s4.1"
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -185,6 +236,8 @@ class ChatResponse(BaseModel):
     evaluation: Optional[EvaluationResultSchema] = None
     action_decision: Optional[ActionDecisionSchema] = None
     world_access_evidence: Optional[List[EvidenceItemSchema]] = None
+    evidence_package: Optional[EvidencePackageSchema] = None
+
 
 
 
