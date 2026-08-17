@@ -35,7 +35,12 @@ class GeminiSearchProvider:
         # Check configuration
         api_key = settings.GEMINI_API_KEY
         if not settings.ENABLE_GEMINI_SEARCH or not api_key or api_key == "your_gemini_api_key_here":
-            return DuckDuckGoSearchProvider.search(query, max_results=max_results)
+            results = DuckDuckGoSearchProvider.search(query, max_results=max_results)
+            for item in results:
+                item["fallback_from"] = "gemini"
+                item["provider_status"] = "FALLBACK"
+                item["error_detail"] = "DISABLED"
+            return results
 
         try:
             model_name = getattr(settings, "GEMINI_SEARCH_MODEL", "gemini-2.5-flash")
@@ -79,21 +84,36 @@ class GeminiSearchProvider:
                 response = client.post(url, json=payload)
 
             if response.status_code != 200:
-                # Log non-200 and gracefully fallback to DuckDuckGo
-                return DuckDuckGoSearchProvider.search(query, max_results=max_results)
+                results = DuckDuckGoSearchProvider.search(query, max_results=max_results)
+                for item in results:
+                    item["fallback_from"] = "gemini"
+                    item["provider_status"] = "FALLBACK"
+                    item["error_detail"] = f"HTTP_{response.status_code}"
+                return results
 
             data = response.json()
             results = cls._parse_grounding_response(data, query, max_results)
 
             if results:
+                for item in results:
+                    item["provider_status"] = "SUCCESS"
                 return results
 
             # If Gemini returned no grounding chunks/text, fallback to DuckDuckGo
-            return DuckDuckGoSearchProvider.search(query, max_results=max_results)
+            results = DuckDuckGoSearchProvider.search(query, max_results=max_results)
+            for item in results:
+                item["fallback_from"] = "gemini"
+                item["provider_status"] = "FALLBACK"
+                item["error_detail"] = "EMPTY_GROUNDING"
+            return results
 
-        except Exception:
-            # Resilient failover: fallback to DuckDuckGo on any network or parsing error
-            return DuckDuckGoSearchProvider.search(query, max_results=max_results)
+        except Exception as e:
+            results = DuckDuckGoSearchProvider.search(query, max_results=max_results)
+            for item in results:
+                item["fallback_from"] = "gemini"
+                item["provider_status"] = "FALLBACK"
+                item["error_detail"] = f"EXCEPTION_{type(e).__name__}"
+            return results
 
     @classmethod
     def _parse_grounding_response(cls, data: Dict[str, Any], query: str, max_results: int) -> List[Dict[str, Any]]:
@@ -184,16 +204,31 @@ class GeminiSearchProvider:
         items = cls.search(query, max_results=max_results, timeout=timeout)
         grounded_summary = ""
         web_queries = [query]
-
+        
+        status = "SUCCESS"
+        provider = "Google Search (Gemini Grounded)"
+        fallback_from = None
+        error_detail = None
+        
         if items:
             grounded_summary = items[0].get("grounded_summary", items[0].get("snippet", ""))
             web_queries = items[0].get("web_search_queries", [query])
-
+            provider = items[0].get("provider", provider)
+            fallback_from = items[0].get("fallback_from")
+            status = items[0].get("provider_status", "SUCCESS")
+            error_detail = items[0].get("error_detail")
+        else:
+            status = "FAILED"
+            error_detail = "NO_RESULTS"
+            
         return {
             "query": query,
             "grounded_summary": grounded_summary,
             "web_search_queries": web_queries,
             "sources": items,
             "source_count": len(items),
-            "provider": items[0].get("provider", "Google Search (Gemini Grounded)") if items else "DuckDuckGo"
+            "provider": provider,
+            "status": status,
+            "fallback_from": fallback_from,
+            "error_detail": error_detail
         }

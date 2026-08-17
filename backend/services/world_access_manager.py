@@ -380,7 +380,10 @@ class EvidenceEngine:
                 provenance={
                     "query": query,
                     "provider": provider,
-                    "web_search_queries": item.get("web_search_queries", [query])
+                    "web_search_queries": item.get("web_search_queries", [query]),
+                    "fallback_from": item.get("fallback_from"),
+                    "provider_status": item.get("provider_status"),
+                    "error_detail": item.get("error_detail")
                 }
             ))
         return evidence
@@ -516,10 +519,12 @@ class WorldAccessManager:
 
         from backend.services.evidence_engine import EvidenceIntelligenceEngine
         raw_items = [{"title": e.title, "snippet": e.content, "url": e.url, "domain": e.domain} for e in evidence_list]
+        is_verification = (action_decision.query_intent == "verification")
         package = EvidenceIntelligenceEngine.process_and_synthesize(
             query=user_query,
             raw_items=raw_items,
-            freshness_requirement=action_decision.freshness_requirement
+            freshness_requirement=action_decision.freshness_requirement,
+            is_verification_mode=is_verification
         )
         grounded_block = EvidenceIntelligenceEngine.format_grounded_prompt_block(package)
         return package.evidence_items, grounded_block or prompt_block, package

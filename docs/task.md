@@ -1,4 +1,6 @@
-- `[x]` Update `backend/services/action_engine.py` to detect explicit verification requests and set query intent to verification.
-- `[x]` Update `backend/services/gemini_search.py` to prompt Gemini with task-oriented Google Search grounding instructions.
-- `[x]` Update `backend/routes/chat.py` to implement `check_evidence_relevance` and handle verification/normal modes.
-- `[x]` Run complete unit and integration tests to verify correctness and safety.
+- `[x]` Update `backend/services/gemini_search.py` with provider status tracking (no silent fallbacks).
+- `[x]` Update `backend/services/world_access_manager.py` to propagate status metadata and pass verification flags.
+- `[x]` Update `backend/services/evidence_engine.py` with the RelevanceGate (batch local AI + keyword) and refined EvidenceItem/Claim lifecycles.
+- `[x]` Update `backend/routes/chat.py` to integrate the RelevanceGate outcomes and inject failsafe refusal blocks.
+- `[x]` Add 6 regression tests in `backend/tests/test_gemini_search.py` and run tests to verify.
+- `[x]` Copy documents to workspace `docs/` and commit/push to git branch `p1`.

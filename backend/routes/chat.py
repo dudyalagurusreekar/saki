@@ -332,59 +332,7 @@ def build_orchestrated_prompt(
     return f"{system_prompt}\n\nUser: {prompt_input}\nSaki:"
 
 
-def check_evidence_relevance(query: str, evidence_items: List[Any]) -> bool:
-    """
-    Checks if retrieved evidence is relevant to the query to prevent hallucination fallbacks.
-    Returns True if relevant, False if completely irrelevant.
-    """
-    if not evidence_items:
-        return False
-        
-    import re
-    # Remove punctuation
-    clean_q = re.sub(r"[^\w\s]", "", query.lower())
-    words = clean_q.split()
-    
-    # Filter out common stop words and search filler words
-    stopwords = {
-        "what", "is", "special", "about", "temple", "in", "andhra", "pradesh", 
-        "tell", "me", "history", "of", "who", "built", "architecture", "where",
-        "the", "and", "for", "you", "know", "does", "anyone", "details", "verify",
-        "correct", "true", "confirm", "check", "whether", "if", "latest", "current",
-        "version", "release"
-    }
-    
-    keywords = [w for w in words if w not in stopwords and len(w) > 3]
-    
-    # If no specific keywords remain, default to True (relevance check skipped)
-    if not keywords:
-        return True
-        
-    # Check if at least one key word is present in at least one evidence item's title or content
-    for item in evidence_items:
-        title = ""
-        content = ""
-        
-        if hasattr(item, "title"):
-            title = getattr(item, "title") or ""
-        elif isinstance(item, dict):
-            title = item.get("title") or ""
-            
-        if hasattr(item, "content"):
-            content = getattr(item, "content") or ""
-        elif hasattr(item, "snippet"):
-            content = getattr(item, "snippet") or ""
-        elif isinstance(item, dict):
-            content = item.get("content") or item.get("snippet") or ""
-            
-        title_lower = title.lower()
-        content_lower = content.lower()
-        
-        for kw in keywords:
-            if kw in title_lower or kw in content_lower:
-                return True
-                
-    return False
+
 
 
 # -------------------------
@@ -476,11 +424,13 @@ def _execute_chat_pipeline(req: ChatRequest) -> ChatPipelineResult:
 
         # Apply relevance checks and mode directives for search capabilities
         if action.action in ["WEB_SEARCH", "WEB_RESEARCH", "WEB_FETCH"]:
-            is_relevant = True
-            if evidence_items:
-                is_relevant = check_evidence_relevance(user_input, evidence_items)
-                
-            if not is_relevant or not evidence_items:
+            is_insufficient = (
+                not evidence_items or 
+                not evidence_package or 
+                evidence_package.evidence_status == "INSUFFICIENT"
+            )
+            
+            if is_insufficient:
                 evidence_items = []
                 evidence_package = None
                 evidence_prompt_block = (
