@@ -372,6 +372,11 @@ def chat_stream(req: ChatRequest):
         from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
         persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
 
+    # Personal Context Evaluation
+    from backend.services.personal_context import PersonalContextEngine, AttentionPolicy
+    active_ctx_items = PersonalContextEngine.select_minimal_context(user_input)
+    attn_mode = PersonalContextEngine.evaluate_proactive_attention(AttentionPolicy())
+
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
     plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
 
@@ -519,6 +524,12 @@ def chat(req: ChatRequest):
         from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
         persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
 
+    # Personal Context Evaluation
+    from backend.services.personal_context import PersonalContextEngine, AttentionPolicy
+    active_ctx_items = PersonalContextEngine.select_minimal_context(user_input)
+    attn_mode = PersonalContextEngine.evaluate_proactive_attention(AttentionPolicy())
+
+
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
 
@@ -645,7 +656,12 @@ def chat(req: ChatRequest):
             expires_at=persistent_task_obj.expires_at,
             retry_count=persistent_task_obj.retry_count,
             max_retries=persistent_task_obj.max_retries
-        ) if persistent_task_obj else None
+        ) if persistent_task_obj else None,
+        personal_context=PersonalContextTelemetrySchema(
+            active_items_count=len(active_ctx_items),
+            top_categories=list({i.category for i in active_ctx_items}),
+            proactive_attention_mode=attn_mode
+        ) if active_ctx_items else None
     )
 
 

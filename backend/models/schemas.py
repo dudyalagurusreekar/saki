@@ -462,6 +462,34 @@ class TaskTelemetrySchema(BaseModel):
 
 
 # -------------------------
+# PERSONAL CONTEXT SCHEMAS
+# -------------------------
+class PersonalContextItemSchema(BaseModel):
+    context_id: str
+    category: str = "PREFERENCE_CONTEXT"  # IDENTITY, PREFERENCE, GOAL, PROJECT, TASK, TEMPORARY
+    content: str
+    source: str = "USER_EXPLICIT"          # USER_EXPLICIT, USER_APPROVED, TASK_STATE, PROJECT_STATE, DERIVED
+    confidence: str = "HIGH"               # HIGH, MEDIUM, LOW
+    importance: str = "NORMAL"             # LOW, NORMAL, HIGH
+    status: str = "ACTIVE"                 # ACTIVE, STALE, SUPERSEDED, EXPIRED, REVOKED
+
+
+class GoalContextSchema(BaseModel):
+    goal_id: str
+    objective: str
+    priority: str = "NORMAL"
+    status: str = "ACTIVE"
+    progress: float = 0.0
+
+
+class PersonalContextTelemetrySchema(BaseModel):
+    active_items_count: int = 0
+    top_categories: List[str] = Field(default_factory=list)
+    proactive_attention_mode: str = "SHOULD_WAIT"  # SHOULD_NOTIFY, SHOULD_WAIT, SHOULD_ASK, SHOULD_ACT, SHOULD_IGNORE
+    details: str = "Personal context evaluated successfully."
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -485,6 +513,8 @@ class ChatResponse(BaseModel):
     development_task: Optional[DevelopmentTaskSchema] = None
     git_github_telemetry: Optional[GitGitHubTelemetrySchema] = None
     persistent_task: Optional[SakiTaskSchema] = None
+    personal_context: Optional[PersonalContextTelemetrySchema] = None
+
 
 
 
