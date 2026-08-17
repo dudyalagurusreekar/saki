@@ -439,6 +439,29 @@ class GitGitHubTelemetrySchema(BaseModel):
 
 
 # -------------------------
+# PERSISTENT TASK SCHEMAS
+# -------------------------
+class SakiTaskSchema(BaseModel):
+    task_id: str
+    objective: str
+    status: str = "CREATED"  # CREATED, PLANNED, WAITING, READY, RUNNING, PAUSED, COMPLETED, FAILED, EXPIRED, CANCELLED
+    schedule_type: str = "ONE_TIME"  # ONE_TIME, RECURRING, CONDITION_BASED
+    trigger_condition: Optional[str] = None
+    capability_scope: List[str] = Field(default_factory=lambda: ["WEB_READ", "NOTIFICATION"])
+    created_at: float = Field(default_factory=time.time)
+    expires_at: Optional[float] = None
+    retry_count: int = 0
+    max_retries: int = 3
+
+
+class TaskTelemetrySchema(BaseModel):
+    action: str = "CREATE_TASK"
+    task_id: str
+    status: str = "ACTIVE"
+    details: str = "Task operation completed."
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -461,6 +484,8 @@ class ChatResponse(BaseModel):
     computer_observation: Optional[ComputerObservationSchema] = None
     development_task: Optional[DevelopmentTaskSchema] = None
     git_github_telemetry: Optional[GitGitHubTelemetrySchema] = None
+    persistent_task: Optional[SakiTaskSchema] = None
+
 
 
 

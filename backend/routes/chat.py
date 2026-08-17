@@ -354,10 +354,11 @@ def chat_stream(req: ChatRequest):
                 user_input,
                 req.attachments
             )
-    # Computer, Development & Git/GitHub Subsystem Execution
+    # Computer, Development, Git/GitHub & Persistent Task Execution
     computer_obs_obj = None
     dev_task_obj = None
     git_telemetry_obj = None
+    persistent_task_obj = None
     if decision.action_decision and decision.action_decision.action == "CODING":
         from backend.services.computer_controller import ComputerController, ComputerAction
         from backend.services.development_capability import DevelopmentCapability
@@ -366,6 +367,10 @@ def chat_stream(req: ChatRequest):
         computer_obs_obj = ComputerController.execute_action(c_action)
         dev_task_obj = DevelopmentCapability.execute_development_task(user_input)
         git_telemetry_obj = GitGitHubCapability.execute_action("GIT_STATUS")
+
+    if any(k in user_input.lower() for k in ["schedule task", "monitor ci", "remind me", "recurring task"]):
+        from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
+        persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
     plan = plan_response(decision.cognitive_state, user_input, user_preferences=user_prefs)
@@ -496,10 +501,11 @@ def chat(req: ChatRequest):
         if evidence_prompt_block:
             prompt_input = prompt_input + evidence_prompt_block
 
-    # Computer, Development & Git/GitHub Subsystem Execution
+    # Computer, Development, Git/GitHub & Persistent Task Execution
     computer_obs_obj = None
     dev_task_obj = None
     git_telemetry_obj = None
+    persistent_task_obj = None
     if decision.action_decision and decision.action_decision.action == "CODING":
         from backend.services.computer_controller import ComputerController, ComputerAction
         from backend.services.development_capability import DevelopmentCapability
@@ -508,6 +514,10 @@ def chat(req: ChatRequest):
         computer_obs_obj = ComputerController.execute_action(c_action)
         dev_task_obj = DevelopmentCapability.execute_development_task(user_input)
         git_telemetry_obj = GitGitHubCapability.execute_action("GIT_STATUS")
+
+    if any(k in user_input.lower() for k in ["schedule task", "monitor ci", "remind me", "recurring task"]):
+        from backend.services.task_capability import PersistentTaskCapability, SCHEDULE_CONDITION
+        persistent_task_obj = PersistentTaskCapability.create_task(user_input, schedule_type=SCHEDULE_CONDITION, condition="CI_STATUS == SUCCESS")
 
 
     user_prefs = [m["content"] for m in memory.get("memories", []) if m.get("type") == "PREFERENCE"]
@@ -623,7 +633,19 @@ def chat(req: ChatRequest):
             branch=git_telemetry_obj.branch,
             status_state=git_telemetry_obj.status_state,
             details=git_telemetry_obj.details
-        ) if git_telemetry_obj else None
+        ) if git_telemetry_obj else None,
+        persistent_task=SakiTaskSchema(
+            task_id=persistent_task_obj.task_id,
+            objective=persistent_task_obj.objective,
+            status=persistent_task_obj.status,
+            schedule_type=persistent_task_obj.schedule_type,
+            trigger_condition=persistent_task_obj.trigger_condition,
+            capability_scope=persistent_task_obj.capability_scope,
+            created_at=persistent_task_obj.created_at,
+            expires_at=persistent_task_obj.expires_at,
+            retry_count=persistent_task_obj.retry_count,
+            max_retries=persistent_task_obj.max_retries
+        ) if persistent_task_obj else None
     )
 
 
