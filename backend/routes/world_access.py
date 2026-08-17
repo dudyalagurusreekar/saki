@@ -25,4 +25,4 @@ def world_access_search(request: WorldAccessRequest):
     request.action = WorldAccessAction.SEARCH
     if not settings.WORLD_ACCESS_ENABLED:
         return {"allowed": False, "error": "World access is disabled"}
-    return world_access.search(request).model_dump()
+    return world_access.search(request).dict()
