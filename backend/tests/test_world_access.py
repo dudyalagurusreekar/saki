@@ -108,11 +108,20 @@ def test_world_access_manager_search_execution():
         reason="Current info search",
         requires_world_access=True
     )
-    items, xml_block = WorldAccessManager.execute_action(action, "What is the latest Python 3.12 version?")
-    
-    assert len(items) > 0
-    assert "<external_web_content>" in xml_block
-    assert items[0].source_type == "search_result"
+    mock_results = [{
+        "title": "Python 3.12 Release Notes",
+        "snippet": "Python 3.12 was released in October 2023.",
+        "url": "https://www.python.org",
+        "domain": "python.org",
+        "provider": "Google Search (Gemini Grounded)",
+        "provider_status": "SUCCESS"
+    }]
+    with patch("backend.services.gemini_search.GeminiSearchProvider.search", return_value=mock_results):
+        items, xml_block = WorldAccessManager.execute_action(action, "What is the latest Python 3.12 version?")
+        
+        assert len(items) > 0
+        assert "<external_web_content>" in xml_block
+        assert items[0].source_type == "search_result"
 
 
 def test_world_access_manager_privacy_blocked():

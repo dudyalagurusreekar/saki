@@ -27,19 +27,21 @@ class GeminiSearchProvider:
     def search(cls, query: str, max_results: int = 5, timeout: float = 20.0) -> List[Dict[str, Any]]:
         """
         Executes Google Search grounding query via Gemini API and returns normalized search result items.
-        Falls back to DuckDuckGoSearchProvider if Gemini API is unreachable, disabled, or unconfigured.
+        Fail-closed: if Gemini is unreachable or returns nothing, returns empty results with FAILURE status.
+        DDG is only used when Gemini is explicitly disabled in config (operator choice, not runtime failure).
         """
         if not query or len(query.strip()) == 0:
             return []
 
-        # Check configuration
+        # Check configuration — DDG fallback ONLY when Gemini is explicitly disabled by operator
         api_key = settings.GEMINI_API_KEY
         if not settings.ENABLE_GEMINI_SEARCH or not api_key or api_key == "your_gemini_api_key_here":
             results = DuckDuckGoSearchProvider.search(query, max_results=max_results)
             for item in results:
-                item["fallback_from"] = "gemini"
-                item["provider_status"] = "FALLBACK"
-                item["error_detail"] = "DISABLED"
+                item["provider"] = item.get("provider", "DuckDuckGo")
+                item["provider_status"] = "SUCCESS"
+                item["error_detail"] = None
+                item["fallback_from"] = None
             return results
 
         try:
@@ -84,12 +86,17 @@ class GeminiSearchProvider:
                 response = client.post(url, json=payload)
 
             if response.status_code != 200:
-                results = DuckDuckGoSearchProvider.search(query, max_results=max_results)
-                for item in results:
-                    item["fallback_from"] = "gemini"
-                    item["provider_status"] = "FALLBACK"
-                    item["error_detail"] = f"HTTP_{response.status_code}"
-                return results
+                # Fail closed: do NOT fall back to DDG
+                return [{
+                    "title": "",
+                    "snippet": "",
+                    "url": "",
+                    "domain": "",
+                    "provider": "gemini",
+                    "provider_status": "FAILURE",
+                    "error_detail": f"HTTP_{response.status_code}",
+                    "fallback_from": None
+                }]
 
             data = response.json()
             results = cls._parse_grounding_response(data, query, max_results)
@@ -97,23 +104,34 @@ class GeminiSearchProvider:
             if results:
                 for item in results:
                     item["provider_status"] = "SUCCESS"
+                    item["fallback_from"] = None
+                    item["error_detail"] = None
                 return results
 
-            # If Gemini returned no grounding chunks/text, fallback to DuckDuckGo
-            results = DuckDuckGoSearchProvider.search(query, max_results=max_results)
-            for item in results:
-                item["fallback_from"] = "gemini"
-                item["provider_status"] = "FALLBACK"
-                item["error_detail"] = "EMPTY_GROUNDING"
-            return results
+            # Gemini returned no grounding chunks — fail closed
+            return [{
+                "title": "",
+                "snippet": "",
+                "url": "",
+                "domain": "",
+                "provider": "gemini",
+                "provider_status": "FAILURE",
+                "error_detail": "EMPTY_GROUNDING",
+                "fallback_from": None
+            }]
 
         except Exception as e:
-            results = DuckDuckGoSearchProvider.search(query, max_results=max_results)
-            for item in results:
-                item["fallback_from"] = "gemini"
-                item["provider_status"] = "FALLBACK"
-                item["error_detail"] = f"EXCEPTION_{type(e).__name__}"
-            return results
+            # Fail closed: do NOT fall back to DDG
+            return [{
+                "title": "",
+                "snippet": "",
+                "url": "",
+                "domain": "",
+                "provider": "gemini",
+                "provider_status": "FAILURE",
+                "error_detail": f"EXCEPTION_{type(e).__name__}",
+                "fallback_from": None
+            }]
 
     @classmethod
     def _parse_grounding_response(cls, data: Dict[str, Any], query: str, max_results: int) -> List[Dict[str, Any]]:
@@ -200,6 +218,7 @@ class GeminiSearchProvider:
         """
         Returns full structured grounded intelligence package including complete grounded synthesis,
         web search queries, and individual source items.
+        Fail-closed: propagates FAILURE status from search() without silent fallback.
         """
         items = cls.search(query, max_results=max_results, timeout=timeout)
         grounded_summary = ""
@@ -210,16 +229,28 @@ class GeminiSearchProvider:
         fallback_from = None
         error_detail = None
         
-        if items:
+        # Detect FAILURE stubs (empty title/snippet/url with FAILURE status)
+        is_failure = (
+            not items or
+            (len(items) == 1 and items[0].get("provider_status") == "FAILURE")
+        )
+        
+        if is_failure:
+            # Extract error details from failure stub if present
+            if items:
+                error_detail = items[0].get("error_detail", "NO_RESULTS")
+                provider = items[0].get("provider", provider)
+            else:
+                error_detail = "NO_RESULTS"
+            status = "FAILURE"
+            items = []  # Clear the failure stub from sources
+        elif items:
             grounded_summary = items[0].get("grounded_summary", items[0].get("snippet", ""))
             web_queries = items[0].get("web_search_queries", [query])
             provider = items[0].get("provider", provider)
             fallback_from = items[0].get("fallback_from")
             status = items[0].get("provider_status", "SUCCESS")
             error_detail = items[0].get("error_detail")
-        else:
-            status = "FAILED"
-            error_detail = "NO_RESULTS"
             
         return {
             "query": query,

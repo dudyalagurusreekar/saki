@@ -648,16 +648,28 @@ def chat(req: ChatRequest):
 
     # Memory Admission Evaluation (BEFORE persisting, so decision can influence storage)
     from backend.services.memory_admission import MemoryAdmissionEngine, MemoryCandidate, SOURCE_USER, TYPE_PERSONAL_MEMORY
-    adm_candidate = MemoryCandidate(
-        content=p.user_input,
-        memory_type=TYPE_PERSONAL_MEMORY if any(kw in p.user_input.lower() for kw in ["remember", "prefer", "like", "building"]) else "WEB_EVIDENCE",
-        source_type=SOURCE_USER if any(kw in p.user_input.lower() for kw in ["remember", "prefer", "like", "building"]) else "WEB"
-    )
-    adm_decision = MemoryAdmissionEngine.evaluate_candidate(adm_candidate)
+
+    # Determine if this interaction was web-derived
+    _web_actions = {"WEB_SEARCH", "WEB_RESEARCH", "WEB_FETCH"}
+    _action = p.decision.action_decision if p.decision else None
+    _is_web_derived = _action and _action.action in _web_actions
+    _user_wants_memory = any(kw in p.user_input.lower() for kw in ["remember", "prefer", "like", "building"])
+
+    if _is_web_derived and not _user_wants_memory:
+        # Block web-derived facts from entering long-term memory (Section 7: Memory Admission Control)
+        adm_decision = None
+    else:
+        adm_candidate = MemoryCandidate(
+            content=p.user_input,
+            memory_type=TYPE_PERSONAL_MEMORY if _user_wants_memory else "WEB_EVIDENCE",
+            source_type=SOURCE_USER if _user_wants_memory else "WEB"
+        )
+        adm_decision = MemoryAdmissionEngine.evaluate_candidate(adm_candidate)
 
     # Persist memory, awareness, and conversation history
     awareness_dict = p.decision.awareness.dict() if p.decision.awareness else None
-    update_memory(p.memory, p.user_input, final_response, awareness_dict=awareness_dict)
+    if not (_is_web_derived and not _user_wants_memory):
+        update_memory(p.memory, p.user_input, final_response, awareness_dict=awareness_dict)
     append_message_to_conversation(p.conv_id, p.user_input, final_response, p.attachments)
 
     # Alias pipeline results for readability
