@@ -221,6 +221,57 @@ class EvidencePackageSchema(BaseModel):
 
 
 # -------------------------
+# RESEARCH SCHEMAS
+# -------------------------
+class ResearchStepSchema(BaseModel):
+    step_id: str
+    query: str
+    purpose: str
+    status: str = "PLANNED"  # PLANNED, RUNNING, COMPLETED, FAILED, SKIPPED
+    result_count: int = 0
+    evidence_count: int = 0
+    timestamp: float = Field(default_factory=time.time)
+
+
+class ResearchBudgetSchema(BaseModel):
+    max_searches: int = 3
+    max_fetches: int = 2
+    max_depth: int = 3
+    max_runtime: float = 15.0
+    max_total_results: int = 15
+    max_total_bytes: int = 1000000
+
+
+class ResearchPlanSchema(BaseModel):
+    research_id: str
+    original_question: str
+    objective: str
+    initial_queries: List[str] = Field(default_factory=list)
+    budget: ResearchBudgetSchema = Field(default_factory=ResearchBudgetSchema)
+    stop_conditions: List[str] = Field(default_factory=list)
+
+
+class ResearchStateSchema(BaseModel):
+    completed_steps: List[ResearchStepSchema] = Field(default_factory=list)
+    pending_steps: List[ResearchStepSchema] = Field(default_factory=list)
+    budget_used: Dict[str, Any] = Field(default_factory=dict)
+    stop_reason: Optional[str] = None
+
+
+class ResearchResultSchema(BaseModel):
+    research_id: str
+    question: str
+    summary: str
+    evidence_package: Optional[EvidencePackageSchema] = None
+    sources_consulted: int = 0
+    searches_performed: int = 0
+    conflicts_detected: int = 0
+    limitations: List[str] = Field(default_factory=list)
+    stop_reason: str = "EVIDENCE_SUFFICIENT"
+    research_duration: float = 0.0
+
+
+# -------------------------
 # CHAT RESPONSE
 # -------------------------
 class ChatResponse(BaseModel):
@@ -237,6 +288,8 @@ class ChatResponse(BaseModel):
     action_decision: Optional[ActionDecisionSchema] = None
     world_access_evidence: Optional[List[EvidenceItemSchema]] = None
     evidence_package: Optional[EvidencePackageSchema] = None
+    research_result: Optional[ResearchResultSchema] = None
+
 
 
 

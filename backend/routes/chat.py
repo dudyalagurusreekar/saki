@@ -327,17 +327,25 @@ def chat_stream(req: ChatRequest):
         memory_data=memory
     )
 
-    # World Access Execution (Search / Fetch / Research & Evidence Intelligence)
+    # World Access Execution & Research Subsystem
     evidence_items = []
     evidence_prompt_block = ""
     evidence_package = None
+    research_result_obj = None
     if decision.action_decision and decision.action_decision.requires_world_access:
         from backend.services.world_access_manager import WorldAccessManager
-        evidence_items, evidence_prompt_block, evidence_package = WorldAccessManager.execute_action_package(
-            decision.action_decision,
-            user_input,
-            req.attachments
-        )
+        if decision.action_decision.action == "WEB_RESEARCH":
+            from backend.services.research_planner import ResearchPlanner
+            research_result_obj = ResearchPlanner.execute_research(user_input)
+            evidence_package = research_result_obj.evidence_package
+            evidence_items = evidence_package.evidence_items if evidence_package else []
+            evidence_prompt_block = research_result_obj.grounded_prompt_block
+        else:
+            evidence_items, evidence_prompt_block, evidence_package = WorldAccessManager.execute_action_package(
+                decision.action_decision,
+                user_input,
+                req.attachments
+            )
         if evidence_prompt_block:
             prompt_input = prompt_input + evidence_prompt_block
 
@@ -440,17 +448,25 @@ def chat(req: ChatRequest):
         memory_data=memory
     )
 
-    # World Access Execution (Search / Fetch / Research & Evidence Intelligence)
+    # World Access Execution & Research Subsystem
     evidence_items = []
     evidence_prompt_block = ""
     evidence_package = None
+    research_result_obj = None
     if decision.action_decision and decision.action_decision.requires_world_access:
         from backend.services.world_access_manager import WorldAccessManager
-        evidence_items, evidence_prompt_block, evidence_package = WorldAccessManager.execute_action_package(
-            decision.action_decision,
-            user_input,
-            req.attachments
-        )
+        if decision.action_decision.action == "WEB_RESEARCH":
+            from backend.services.research_planner import ResearchPlanner
+            research_result_obj = ResearchPlanner.execute_research(user_input)
+            evidence_package = research_result_obj.evidence_package
+            evidence_items = evidence_package.evidence_items if evidence_package else []
+            evidence_prompt_block = research_result_obj.grounded_prompt_block
+        else:
+            evidence_items, evidence_prompt_block, evidence_package = WorldAccessManager.execute_action_package(
+                decision.action_decision,
+                user_input,
+                req.attachments
+            )
         if evidence_prompt_block:
             prompt_input = prompt_input + evidence_prompt_block
 
@@ -522,7 +538,8 @@ def chat(req: ChatRequest):
         ),
         action_decision=decision.action_decision.dict() if decision.action_decision else None,
         world_access_evidence=[EvidenceItemSchema(**e.dict()) for e in evidence_items] if evidence_items else None,
-        evidence_package=EvidencePackageSchema(**evidence_package.dict()) if evidence_package else None
+        evidence_package=EvidencePackageSchema(**evidence_package.dict()) if evidence_package else None,
+        research_result=ResearchResultSchema(**research_result_obj.dict()) if research_result_obj else None
     )
 
 

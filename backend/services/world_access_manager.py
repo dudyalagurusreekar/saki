@@ -392,3 +392,16 @@ class WorldAccessManager:
         grounded_block = EvidenceIntelligenceEngine.format_grounded_prompt_block(package)
         return package.evidence_items, grounded_block or prompt_block, package
 
+    @classmethod
+    def execute_research(
+        cls,
+        user_query: str,
+        depth_level: str = "STANDARD"
+    ) -> Any:
+        """
+        Delegates complex research queries to ResearchPlanner for bounded multi-step web research.
+        """
+        from backend.services.research_planner import ResearchPlanner
+        return ResearchPlanner.execute_research(user_query, depth_level=depth_level)
+
+
