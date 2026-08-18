@@ -604,7 +604,9 @@ def chat_stream(req: ChatRequest):
             if cleaned_buffer:
                 yield cleaned_buffer
 
-        if is_helpless_response(full_response):
+        # Only trigger secondary search fallback if world access search wasn't already attempted
+        action_name = p.decision.action_decision.action if p.decision and p.decision.action_decision else ""
+        if is_helpless_response(full_response) and action_name not in ["WEB_SEARCH", "WEB_RESEARCH", "WEB_FETCH"]:
             results = safe_search(p.user_input)
             if results:
                 follow_prompt = f"Answer naturally as Saki using these search results:\n{results}\nQuery: {p.user_input}\nSaki:"
@@ -635,13 +637,16 @@ def chat(req: ChatRequest):
         images=p.image_paths if p.image_paths else None
     )
 
-    if is_helpless_response(response):
+    # Only trigger secondary search fallback if world access search wasn't already attempted
+    action_name = p.decision.action_decision.action if p.decision and p.decision.action_decision else ""
+    if is_helpless_response(response) and action_name not in ["WEB_SEARCH", "WEB_RESEARCH", "WEB_FETCH"]:
         results = safe_search(p.user_input)
         if results:
             response = call_model(
                 f"Answer naturally as Saki using these search results:\n{results}\nQuery: {p.user_input}\nSaki:",
                 model=settings.MODEL_QWEN3
             )
+
 
     eval_result = evaluate_response(response, plan=p.plan, mode=p.decision.conversation_mode)
     final_response = eval_result.repaired_text

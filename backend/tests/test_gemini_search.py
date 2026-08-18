@@ -93,18 +93,18 @@ def test_empty_grounding_returns_failure_not_fallback():
         assert results[0]["error_detail"] == "EMPTY_GROUNDING"
 
 
-def test_ddg_used_only_when_gemini_disabled():
-    """Verify DDG is used (with SUCCESS status) when Gemini is explicitly disabled in config."""
-    ddg_results = [{"title": "DDG Result", "snippet": "DDG Snippet", "url": "https://ddg.com"}]
-    with patch("backend.services.gemini_search.settings") as mock_settings, \
-         patch.object(DuckDuckGoSearchProvider, "search", return_value=ddg_results):
+def test_gemini_disabled_returns_failure_stub():
+    """Verify GeminiSearchProvider returns explicit FAILURE status when Gemini is disabled/unconfigured (no silent fallback)."""
+    with patch("backend.services.gemini_search.settings") as mock_settings:
         mock_settings.ENABLE_GEMINI_SEARCH = False
         mock_settings.GEMINI_API_KEY = None
         results = GeminiSearchProvider.search("test query")
-        assert len(results) > 0
-        # When Gemini is disabled, DDG results are SUCCESS, not FALLBACK
-        assert results[0]["provider_status"] == "SUCCESS"
+        assert len(results) == 1
+        assert results[0]["provider_status"] == "FAILURE"
+        assert results[0]["provider"] == "gemini"
+        assert results[0]["error_detail"] == "GEMINI_DISABLED_OR_NO_KEY"
         assert results[0].get("fallback_from") is None
+
 
 
 def test_search_grounded_propagates_failure():

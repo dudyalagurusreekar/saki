@@ -489,12 +489,75 @@ class EvidenceEngine:
 
 
 # -------------------------
+# DIAGNOSTIC TRACE LOGGING
+# -------------------------
+class DiagnosticTracer:
+    """Emits structured diagnostic traces for web search pipeline auditing."""
+
+    @staticmethod
+    def build_trace(
+        user_query: str,
+        action: str,
+        sanitized_query: str,
+        package: Any,
+        final_prompt_context: str,
+        final_answer: str = ""
+    ) -> Dict[str, Any]:
+        provider = "Gemini"
+        provider_status = "SUCCESS"
+        fallback_from = None
+
+        search_results = []
+        relevance_decisions = []
+        relevant_sources = []
+        rejected_sources = []
+
+        if package:
+            for ev in getattr(package, "evidence_items", []):
+                prov = ev.provenance or {}
+                provider = prov.get("provider", provider)
+                provider_status = prov.get("provider_status", provider_status)
+                fallback_from = prov.get("fallback_from", fallback_from)
+
+                title = ev.title
+                search_results.append({
+                    "title": title,
+                    "url": ev.url,
+                    "snippet": ev.content[:150]
+                })
+
+                if ev.process_state == "RELEVANT":
+                    relevance_decisions.append({title: "RELEVANT"})
+                    relevant_sources.append(title)
+                else:
+                    relevance_decisions.append({title: "IRRELEVANT"})
+                    rejected_sources.append(title)
+
+        return {
+            "USER_QUERY": user_query,
+            "ACTION": action,
+            "PRIVACY_SANITIZED_QUERY": sanitized_query,
+            "SEARCH_PROVIDER": provider,
+            "PROVIDER_STATUS": provider_status,
+            "FALLBACK_USED": fallback_from,
+            "SEARCH_RESULTS": search_results,
+            "RELEVANCE_DECISIONS": relevance_decisions,
+            "RELEVANT_SOURCES": relevant_sources,
+            "REJECTED_SOURCES": rejected_sources,
+            "FINAL_PROMPT_CONTEXT": final_prompt_context,
+            "FINAL_ANSWER": final_answer
+        }
+
+
+# -------------------------
 # WORLD ACCESS MANAGER
 # -------------------------
 class WorldAccessManager:
     """
     Executive orchestrator for native World Access external search & fetch capabilities.
     """
+    _last_diagnostic_trace: Optional[Dict[str, Any]] = None
+
 
     @classmethod
     def execute_action(
@@ -574,7 +637,19 @@ class WorldAccessManager:
             return [], "", None
 
         from backend.services.evidence_engine import EvidenceIntelligenceEngine
-        raw_items = [{"title": e.title, "snippet": e.content, "url": e.url, "domain": e.domain} for e in evidence_list]
+        raw_items = [
+            {
+                "title": e.title,
+                "snippet": e.content,
+                "url": e.url,
+                "domain": e.domain,
+                "provider": e.provenance.get("provider", "Gemini"),
+                "provider_status": e.provenance.get("provider_status", "SUCCESS"),
+                "fallback_from": e.provenance.get("fallback_from"),
+                "error_detail": e.provenance.get("error_detail")
+            }
+            for e in evidence_list
+        ]
         is_verification = (action_decision.query_intent == "verification")
         package = EvidenceIntelligenceEngine.process_and_synthesize(
             query=user_query,
@@ -583,7 +658,19 @@ class WorldAccessManager:
             is_verification_mode=is_verification
         )
         grounded_block = EvidenceIntelligenceEngine.format_grounded_prompt_block(package)
+
+        # Log structured diagnostic trace
+        tracer = DiagnosticTracer.build_trace(
+            user_query=user_query,
+            action=action_decision.action,
+            sanitized_query=user_query,
+            package=package,
+            final_prompt_context=grounded_block or prompt_block
+        )
+        WorldAccessManager._last_diagnostic_trace = tracer
+
         return package.evidence_items, grounded_block or prompt_block, package
+
 
     @classmethod
     def execute_research(

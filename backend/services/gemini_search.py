@@ -33,16 +33,20 @@ class GeminiSearchProvider:
         if not query or len(query.strip()) == 0:
             return []
 
-        # Check configuration — DDG fallback ONLY when Gemini is explicitly disabled by operator
+        # Fail closed: No silent fallback on disabled key or unconfigured provider
         api_key = settings.GEMINI_API_KEY
         if not settings.ENABLE_GEMINI_SEARCH or not api_key or api_key == "your_gemini_api_key_here":
-            results = DuckDuckGoSearchProvider.search(query, max_results=max_results)
-            for item in results:
-                item["provider"] = item.get("provider", "DuckDuckGo")
-                item["provider_status"] = "SUCCESS"
-                item["error_detail"] = None
-                item["fallback_from"] = None
-            return results
+            return [{
+                "title": "",
+                "snippet": "",
+                "url": "",
+                "domain": "",
+                "provider": "gemini",
+                "provider_status": "FAILURE",
+                "error_detail": "GEMINI_DISABLED_OR_NO_KEY",
+                "fallback_from": None
+            }]
+
 
         try:
             model_name = getattr(settings, "GEMINI_SEARCH_MODEL", "gemini-2.5-flash")
