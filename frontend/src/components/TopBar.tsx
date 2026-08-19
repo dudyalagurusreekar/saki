@@ -1,3 +1,5 @@
+import { useState, useEffect } from "react";
+
 interface TopBarProps {
   theme: "clear_sky" | "night_sky";
   onToggleTheme: () => void;
@@ -8,6 +10,16 @@ interface TopBarProps {
   healthStatus?: "Online" | "Degraded" | "Offline";
   mode?: string;
   activeProject?: string;
+}
+
+// Time-of-day emoji mapping
+function getTimeOfDayEmoji(hour: number): string {
+  if (hour >= 0 && hour < 4) return "🌑";
+  if (hour >= 4 && hour < 6) return "🌅";
+  if (hour >= 6 && hour < 12) return "🌤️";
+  if (hour >= 12 && hour < 17) return "☀️";
+  if (hour >= 17 && hour < 21) return "🌆";
+  return "🌙";
 }
 
 export default function TopBar({
@@ -22,6 +34,30 @@ export default function TopBar({
   activeProject
 }: TopBarProps) {
   const isNight = theme === "night_sky";
+
+  // -------------------------
+  // Live Clock State
+  // -------------------------
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [colonVisible, setColonVisible] = useState(true);
+
+  useEffect(() => {
+    // Set initial time after mount to avoid hydration mismatch
+    setCurrentTime(new Date());
+
+    const tickInterval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    const blinkInterval = setInterval(() => {
+      setColonVisible((prev) => !prev);
+    }, 1000);
+
+    return () => {
+      clearInterval(tickInterval);
+      clearInterval(blinkInterval);
+    };
+  }, []);
 
   const getModeBadge = (m: string) => {
     switch (m) {
@@ -51,6 +87,26 @@ export default function TopBar({
 
   const modeBadge = getModeBadge(mode);
   const health = getHealthDot(healthStatus);
+
+  // Format time display
+  const formatTime = (date: Date) => {
+    let hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+    const minuteStr = minutes.toString().padStart(2, "0");
+    return { hours: hours.toString(), minutes: minuteStr, ampm };
+  };
+
+  const formatDate = (date: Date) => {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${days[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
+  };
+
+  const timeData = currentTime ? formatTime(currentTime) : null;
+  const dateStr = currentTime ? formatDate(currentTime) : null;
+  const timeEmoji = currentTime ? getTimeOfDayEmoji(currentTime.getHours()) : "🕐";
 
   return (
     <header 
@@ -110,8 +166,77 @@ export default function TopBar({
         </div>
       </div>
 
-      {/* Right section: Theme & Brain controls */}
-      <div className="flex items-center gap-2">
+      {/* Right section: Clock, Theme & Brain controls */}
+      <div className="flex items-center gap-2 md:gap-3">
+        
+        {/* Live Clock Display */}
+        {timeData && (
+          <div 
+            className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-2xl border transition-all duration-300 select-none ${
+              isNight
+                ? "bg-slate-800/60 border-slate-700/80 shadow-inner shadow-slate-900/30"
+                : "bg-white/70 border-slate-200/80 shadow-inner shadow-slate-100/50"
+            }`}
+            title={currentTime ? currentTime.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : ""}
+          >
+            {/* Time-of-day emoji */}
+            <span className="text-sm" aria-hidden="true">{timeEmoji}</span>
+            
+            {/* Digital clock */}
+            <div className="flex items-baseline gap-0">
+              <span className={`text-sm font-bold tabular-nums tracking-tight ${
+                isNight ? "text-slate-100" : "text-slate-800"
+              }`}>
+                {timeData.hours}
+              </span>
+              <span className={`text-sm font-bold tabular-nums transition-opacity duration-200 ${
+                colonVisible ? "opacity-100" : "opacity-30"
+              } ${isNight ? "text-indigo-400" : "text-indigo-600"}`}>
+                :
+              </span>
+              <span className={`text-sm font-bold tabular-nums tracking-tight ${
+                isNight ? "text-slate-100" : "text-slate-800"
+              }`}>
+                {timeData.minutes}
+              </span>
+              <span className={`text-[9px] font-extrabold ml-0.5 ${
+                isNight ? "text-indigo-400/80" : "text-indigo-500/80"
+              }`}>
+                {timeData.ampm}
+              </span>
+            </div>
+
+            {/* Separator dot */}
+            <span className={`h-3 w-px ${isNight ? "bg-slate-700" : "bg-slate-300"}`}></span>
+            
+            {/* Date */}
+            <span className={`text-[10px] font-semibold whitespace-nowrap ${
+              isNight ? "text-slate-400" : "text-slate-500"
+            }`}>
+              {dateStr}
+            </span>
+          </div>
+        )}
+
+        {/* Compact clock for mobile */}
+        {timeData && (
+          <div className={`flex sm:hidden items-center gap-1 px-2 py-1 rounded-xl border text-xs font-bold ${
+            isNight
+              ? "bg-slate-800/60 border-slate-700/80 text-slate-200"
+              : "bg-white/70 border-slate-200/80 text-slate-700"
+          }`}>
+            <span className="text-[10px]">{timeEmoji}</span>
+            <span className="tabular-nums">
+              {timeData.hours}
+              <span className={colonVisible ? "opacity-100" : "opacity-30"}>:</span>
+              {timeData.minutes}
+            </span>
+            <span className={`text-[8px] font-extrabold ${
+              isNight ? "text-indigo-400/80" : "text-indigo-500/80"
+            }`}>{timeData.ampm}</span>
+          </div>
+        )}
+
         {/* Theme Toggle */}
         <button
           suppressHydrationWarning

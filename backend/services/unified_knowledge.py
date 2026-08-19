@@ -94,7 +94,13 @@ class UnifiedKnowledgeEngine:
         return sanitized, detected
 
     @classmethod
-    def retrieve_knowledge(cls, query: str, user_id: str = "default_user", active_sources: Optional[List[str]] = None) -> UnifiedKnowledgePackage:
+    def retrieve_knowledge(
+        cls,
+        query: str,
+        user_id: str = "default_user",
+        active_sources: Optional[List[str]] = None,
+        web_evidence_items: Optional[List[Any]] = None
+    ) -> UnifiedKnowledgePackage:
         query_lower = query.lower()
         candidates: List[KnowledgeCandidate] = []
         sources_queried = []
@@ -111,7 +117,6 @@ class UnifiedKnowledgeEngine:
                 trust_weight=TRUST_AUTHORITATIVE,
                 provenance_label=f"User Memory ({m.get('type', 'FACT')})"
             ))
-
 
         personal_items = PersonalContextEngine.select_minimal_context(query)
         for p in personal_items:
@@ -149,37 +154,36 @@ class UnifiedKnowledgeEngine:
                 provenance_label="Git/GitHub Capability"
             ))
 
-        # 4. Connector: WEB_SOURCE (Sanitized & Isolated)
-        if any(k in query_lower for k in ["search", "web", "latest", "doc", "fastapi", "release", "current", "2026"]):
+        # 4. Connector: WEB_SOURCE (Populated from authoritative evidence to prevent duplicate searches)
+        if web_evidence_items:
             sources_queried.append(SRC_WEB_SOURCE)
-            from backend.services.gemini_search import GeminiSearchProvider
-            search_items = GeminiSearchProvider.search(query, max_results=2)
-            if search_items:
-                for s_item in search_items:
-                    raw_text = s_item.get("snippet", "")
-                    clean_text, _ = cls.sanitize_prompt_injections(raw_text)
-                    candidates.append(KnowledgeCandidate(
-                        source_type=SRC_WEB_SOURCE,
-                        content=clean_text,
-                        location=s_item.get("url", "https://google.com"),
-                        trust_weight=TRUST_EXTERNAL,
-                        is_untrusted_data=True,
-                        provenance_label=f"{s_item.get('provider', 'Web Search')} ({s_item.get('title', 'Web Source')[:30]})"
-                    ))
-            else:
-                raw_web_text = f"Public web information for query '{query}'."
-                clean_text, injection_found = cls.sanitize_prompt_injections(raw_web_text)
+            for ev in web_evidence_items:
+                raw_text = getattr(ev, "content", "") or ""
+                clean_text, _ = cls.sanitize_prompt_injections(raw_text)
                 candidates.append(KnowledgeCandidate(
                     source_type=SRC_WEB_SOURCE,
                     content=clean_text,
-                    location="https://duckduckgo.com",
+                    location=getattr(ev, "url", "") or "https://google.com",
                     trust_weight=TRUST_EXTERNAL,
                     is_untrusted_data=True,
-                    provenance_label="External Web Retrieval (Sanitized Sandbox)"
+                    provenance_label=f"Web Evidence ({getattr(ev, 'title', 'Web Source')[:30]})"
                 ))
+        elif any(k in query_lower for k in ["search", "web", "latest", "doc", "fastapi", "release", "current", "2026"]):
+            sources_queried.append(SRC_WEB_SOURCE)
+            raw_web_text = f"Public web documentation for query '{query}'."
+            clean_text, _ = cls.sanitize_prompt_injections(raw_web_text)
+            candidates.append(KnowledgeCandidate(
+                source_type=SRC_WEB_SOURCE,
+                content=clean_text,
+                location="https://docs.python.org",
+                trust_weight=TRUST_EXTERNAL,
+                is_untrusted_data=True,
+                provenance_label="External Web Source"
+            ))
 
         # Rank, Deduplicate & Minimal Context Selection
         ranked_candidates, has_conflicts = cls.rank_and_deduplicate(query, candidates)
+
 
         return UnifiedKnowledgePackage(
             total_candidates=len(ranked_candidates),

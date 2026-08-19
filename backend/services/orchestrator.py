@@ -23,6 +23,28 @@ from backend.core.saki_state import (
 )
 from backend.services.learning_service import apply_learned_policies
 from backend.services.action_engine import ActionDecision, decide_action
+from backend.services.temporal_service import TemporalService
+
+
+def _apply_temporal_tone(awareness) -> None:
+    """Apply time-of-day tone adjustments to awareness social energy in-place."""
+    adjustments = TemporalService.get_tone_adjustments()
+    if awareness and awareness.social_energy:
+        se = awareness.social_energy
+        se.energy = max(0.0, min(1.0, se.energy + adjustments.get("energy", 0.0)))
+        se.warmth = max(0.0, min(1.0, se.warmth + adjustments.get("warmth", 0.0)))
+        se.playfulness = max(0.0, min(1.0, se.playfulness + adjustments.get("playfulness", 0.0)))
+        se.seriousness = max(0.0, min(1.0, se.seriousness + adjustments.get("seriousness", 0.0)))
+
+
+def _temporal_context_fields() -> dict:
+    """Return temporal fields for ContextState construction."""
+    ctx = TemporalService.get_temporal_context()
+    return {
+        "current_time_of_day": ctx.time_of_day,
+        "is_weekend": ctx.is_weekend,
+        "session_start_time": ctx.datetime_iso,
+    }
 
 
 class RoutingDecision(BaseModel):
@@ -133,11 +155,12 @@ class SakiModelOrchestrator:
                 has_image=True
             )
             task, stage = infer_task_and_stage(query_text, mode="vision", is_coding=False, has_image=True)
+            _apply_temporal_tone(awareness)
             cognitive_state = SakiCognitiveState(
                 conversation=ConversationState(topic="vision_inspection", mode="vision", task=task, stage=stage),
                 user_state=UserCognitiveState(emotion=awareness.emotional_state.emotion, intensity=awareness.emotional_state.intensity, confidence=0.9, needs=awareness.emotional_state.needs),
                 saki_state=SakiInternalState(warmth=awareness.social_energy.warmth, playfulness=awareness.social_energy.playfulness, seriousness=awareness.social_energy.seriousness, verbosity=0.6),
-                context=ContextState(active_project=awareness.current_project, last_model=settings.MODEL_GEMMA, recent_topic=awareness.recent_topic),
+                context=ContextState(active_project=awareness.current_project, last_model=settings.MODEL_GEMMA, recent_topic=awareness.recent_topic, **_temporal_context_fields()),
                 uncertainty=ConfidenceMetrics(routing_confidence=0.95, emotion_confidence=0.90, memory_relevance=0.85)
             )
             return RoutingDecision(
@@ -204,11 +227,12 @@ class SakiModelOrchestrator:
                 has_code=True
             )
             task, stage = infer_task_and_stage(query_text, mode="builder", is_coding=True, has_image=False)
+            _apply_temporal_tone(awareness)
             cognitive_state = SakiCognitiveState(
                 conversation=ConversationState(topic=awareness.current_project or "coding", mode="builder", task=task, stage=stage),
                 user_state=UserCognitiveState(emotion=detected_emotion, intensity=emotional_state.intensity, confidence=emotional_state.confidence, needs=emotional_state.needs),
                 saki_state=SakiInternalState(warmth=awareness.social_energy.warmth, playfulness=awareness.social_energy.playfulness, seriousness=awareness.social_energy.seriousness, verbosity=0.6),
-                context=ContextState(active_project=awareness.current_project, last_model=selected_model, recent_topic=task, consecutive_frustrations=new_frustrations),
+                context=ContextState(active_project=awareness.current_project, last_model=selected_model, recent_topic=task, consecutive_frustrations=new_frustrations, **_temporal_context_fields()),
                 uncertainty=ConfidenceMetrics(routing_confidence=0.92, emotion_confidence=emotional_state.confidence, memory_relevance=0.85)
             )
             return RoutingDecision(
@@ -247,11 +271,12 @@ class SakiModelOrchestrator:
                 previous_awareness=previous_awareness
             )
             task, stage = infer_task_and_stage(query_text, mode="support", is_coding=False, has_image=False)
+            _apply_temporal_tone(awareness)
             cognitive_state = SakiCognitiveState(
                 conversation=ConversationState(topic="emotional_support", mode="support", task=task, stage=stage),
                 user_state=UserCognitiveState(emotion=detected_emotion, intensity=emotional_state.intensity, confidence=emotional_state.confidence, needs=emotional_state.needs),
                 saki_state=SakiInternalState(warmth=awareness.social_energy.warmth, playfulness=awareness.social_energy.playfulness, seriousness=awareness.social_energy.seriousness, verbosity=0.5),
-                context=ContextState(active_project=awareness.current_project, last_model=selected_model, recent_topic=task),
+                context=ContextState(active_project=awareness.current_project, last_model=selected_model, recent_topic=task, **_temporal_context_fields()),
                 uncertainty=ConfidenceMetrics(routing_confidence=0.94, emotion_confidence=emotional_state.confidence, memory_relevance=0.80)
             )
             return RoutingDecision(
@@ -294,11 +319,12 @@ class SakiModelOrchestrator:
                 previous_awareness=previous_awareness
             )
             task, stage = infer_task_and_stage(query_text, mode="casual", is_coding=False, has_image=False)
+            _apply_temporal_tone(awareness)
             cognitive_state = SakiCognitiveState(
                 conversation=ConversationState(topic="casual_banter", mode="casual", task=task, stage=stage),
                 user_state=UserCognitiveState(emotion=detected_emotion, intensity=emotional_state.intensity, confidence=emotional_state.confidence, needs=emotional_state.needs),
                 saki_state=SakiInternalState(warmth=awareness.social_energy.warmth, playfulness=awareness.social_energy.playfulness, seriousness=awareness.social_energy.seriousness, verbosity=0.3),
-                context=ContextState(active_project=awareness.current_project, last_model=selected_model, recent_topic=task),
+                context=ContextState(active_project=awareness.current_project, last_model=selected_model, recent_topic=task, **_temporal_context_fields()),
                 uncertainty=ConfidenceMetrics(routing_confidence=0.90, emotion_confidence=emotional_state.confidence, memory_relevance=0.75)
             )
             return RoutingDecision(
@@ -337,11 +363,12 @@ class SakiModelOrchestrator:
             previous_awareness=previous_awareness
         )
         task, stage = infer_task_and_stage(query_text, mode="thinking", is_coding=False, has_image=False)
+        _apply_temporal_tone(awareness)
         cognitive_state = SakiCognitiveState(
             conversation=ConversationState(topic="reasoning_and_learning", mode="thinking", task=task, stage=stage),
             user_state=UserCognitiveState(emotion=detected_emotion, intensity=emotional_state.intensity, confidence=emotional_state.confidence, needs=emotional_state.needs),
             saki_state=SakiInternalState(warmth=awareness.social_energy.warmth, playfulness=awareness.social_energy.playfulness, seriousness=awareness.social_energy.seriousness, verbosity=0.7),
-            context=ContextState(active_project=awareness.current_project, last_model=selected_model, recent_topic=task),
+            context=ContextState(active_project=awareness.current_project, last_model=selected_model, recent_topic=task, **_temporal_context_fields()),
             uncertainty=ConfidenceMetrics(routing_confidence=0.88, emotion_confidence=emotional_state.confidence, memory_relevance=0.88)
         )
         return RoutingDecision(

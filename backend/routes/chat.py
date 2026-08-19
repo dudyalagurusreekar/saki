@@ -418,9 +418,15 @@ def _execute_chat_pipeline(req: ChatRequest) -> ChatPipelineResult:
             evidence_items = evidence_package.evidence_items if evidence_package else []
             evidence_prompt_block = research_result_obj.grounded_prompt_block
         else:
-            evidence_items, evidence_prompt_block, evidence_package = WorldAccessManager.execute_action_package(
-                action, user_input, req.attachments
+            from backend.services.web_controller import WebIntelligenceController
+            web_exec_res = WebIntelligenceController.execute(
+                query=user_input,
+                action_decision=action,
+                attachments=req.attachments
             )
+            evidence_items = web_exec_res.evidence_items
+            evidence_prompt_block = web_exec_res.grounded_prompt_block
+            evidence_package = web_exec_res.evidence_package
 
         # Apply relevance checks and mode directives for search capabilities
         if action.action in ["WEB_SEARCH", "WEB_RESEARCH", "WEB_FETCH"]:
@@ -440,7 +446,7 @@ def _execute_chat_pipeline(req: ChatRequest) -> ChatPipelineResult:
                     "[CRITICAL DIRECTIVE: You MUST state that you do not have verified records or active web search results to answer this query. Refuse to guess, speculate, or extrapolate. Speak naturally as Saki and explain you couldn't retrieve enough information.]"
                 )
             else:
-                is_verification = decision.query_intent == "verification" or any(re.search(pat, user_input.lower()) for pat in [
+                is_verification = (action and action.query_intent == "verification") or any(re.search(pat, user_input.lower()) for pat in [
                     r"\b(verify|confirm|check whether|check if)\b",
                     r"\bis this correct\b",
                     r"\bis this true\b",
@@ -513,13 +519,17 @@ def _execute_chat_pipeline(req: ChatRequest) -> ChatPipelineResult:
         from backend.services.unified_knowledge import UnifiedKnowledgeEngine
         from backend.services.knowledge_fusion import KnowledgeFusionEngine
         from backend.services.knowledge_graph import KnowledgeGraphEngine
-        unified_rag_pkg = UnifiedKnowledgeEngine.retrieve_knowledge(user_input)
+        unified_rag_pkg = UnifiedKnowledgeEngine.retrieve_knowledge(user_input, web_evidence_items=evidence_items)
         fused_knowledge_pkg = KnowledgeFusionEngine.fuse_knowledge(unified_rag_pkg)
         knowledge_graph_pkg = KnowledgeGraphEngine.traverse_subgraph(user_input, fused_knowledge_pkg)
 
-    if any(k in user_lower for k in ["search", "web", "latest", "doc", "fastapi"]):
+    if (action and action.requires_world_access) or any(k in user_lower for k in ["search", "web", "latest", "doc", "fastapi"]):
         from backend.services.web_intelligence import WebIntelligenceCapability
-        web_intel_res = WebIntelligenceCapability.execute_web_intelligence(user_input)
+        web_intel_res = WebIntelligenceCapability.execute_web_intelligence(
+            user_input,
+            evidence_package=evidence_package,
+            evidence_items=evidence_items
+        )
 
     # Adaptive intelligence â€” lightweight, always runs
     from backend.services.adaptive_intelligence import AdaptiveIntelligenceEngine
@@ -577,6 +587,40 @@ def chat_stream(req: ChatRequest):
     p = _execute_chat_pipeline(req)
 
     def generate():
+        action = p.decision.action_decision if p.decision else None
+        requires_web = bool(action and getattr(action, "requires_world_access", False))
+        freshness = getattr(action, "freshness_requirement", "STABLE") if action else "STABLE"
+        is_cef = (
+            freshness == "CURRENT_EXTERNAL_FACT" or
+            getattr(action, "query_intent", "") == "current_external_fact"
+        )
+        is_insufficient = requires_web and (
+            not p.evidence_items or 
+            not p.evidence_package or 
+            getattr(p.evidence_package, "evidence_status", "") == "INSUFFICIENT"
+        )
+
+        # CURRENT_EXTERNAL_FACT Gate: If normal web search failed for a current fact query,
+        # escalate to Gemini immediately rather than streaming hallucinated static knowledge.
+        if (is_cef or (requires_web and is_insufficient)):
+            from backend.services.gemini_escalation import GeminiEscalationEngine
+            already_attempted = getattr(req, "gemini_final_escalation_attempted", False)
+            if not already_attempted and is_insufficient:
+                gemini_text, esc_status, esc_latency = GeminiEscalationEngine.escalate_to_gemini(
+                    user_query=p.user_input,
+                    timeout=15.0
+                )
+                if gemini_text and len(gemini_text.strip()) > 10:
+                    final_response = gemini_text.strip()
+                else:
+                    final_response = "I'm sorry, but I wasn't able to retrieve verified current information to answer your question right now."
+                
+                yield final_response
+                awareness_dict = p.decision.awareness.dict() if p.decision.awareness else None
+                update_memory(p.memory, p.user_input, final_response, awareness_dict=awareness_dict)
+                append_message_to_conversation(p.conv_id, p.user_input, final_response, p.attachments)
+                return
+
         full_response = ""
         prefix_buffer = ""
         prefix_checked = False
@@ -604,17 +648,15 @@ def chat_stream(req: ChatRequest):
             if cleaned_buffer:
                 yield cleaned_buffer
 
-        # Only trigger secondary search fallback if world access search wasn't already attempted
-        action_name = p.decision.action_decision.action if p.decision and p.decision.action_decision else ""
-        if is_helpless_response(full_response) and action_name not in ["WEB_SEARCH", "WEB_RESEARCH", "WEB_FETCH"]:
-            results = safe_search(p.user_input)
-            if results:
-                follow_prompt = f"Answer naturally as Saki using these search results:\n{results}\nQuery: {p.user_input}\nSaki:"
-                for chunk in stream_model(follow_prompt, model=settings.MODEL_QWEN3, keep_alive=settings.MODEL_KEEP_ALIVE_SESSION):
-                    full_response += chunk
-                    yield chunk
-
-        eval_result = evaluate_response(full_response, plan=p.plan, mode=p.decision.conversation_mode)
+        eval_result = evaluate_response(
+            full_response,
+            plan=p.plan,
+            mode=p.decision.conversation_mode,
+            evidence_items=p.evidence_items,
+            evidence_package=p.evidence_package,
+            action_decision=p.decision.action_decision if p.decision else None,
+            user_query=p.user_input
+        )
         cleaned_response = eval_result.repaired_text
 
         awareness_dict = p.decision.awareness.dict() if p.decision.awareness else None
@@ -637,19 +679,42 @@ def chat(req: ChatRequest):
         images=p.image_paths if p.image_paths else None
     )
 
-    # Only trigger secondary search fallback if world access search wasn't already attempted
-    action_name = p.decision.action_decision.action if p.decision and p.decision.action_decision else ""
-    if is_helpless_response(response) and action_name not in ["WEB_SEARCH", "WEB_RESEARCH", "WEB_FETCH"]:
-        results = safe_search(p.user_input)
-        if results:
-            response = call_model(
-                f"Answer naturally as Saki using these search results:\n{results}\nQuery: {p.user_input}\nSaki:",
-                model=settings.MODEL_QWEN3
-            )
-
-
-    eval_result = evaluate_response(response, plan=p.plan, mode=p.decision.conversation_mode)
+    eval_result = evaluate_response(
+        response,
+        plan=p.plan,
+        mode=p.decision.conversation_mode,
+        evidence_items=p.evidence_items,
+        evidence_package=p.evidence_package,
+        action_decision=p.decision.action_decision if p.decision else None,
+        user_query=p.user_input
+    )
     final_response = eval_result.repaired_text
+
+    # Last-Resort Gemini Answer Escalation (Sprint Final + Current Fact Fix)
+    from backend.services.gemini_escalation import GeminiEscalationEngine
+    already_attempted = getattr(req, "gemini_final_escalation_attempted", False)
+    should_esc, esc_reason = GeminiEscalationEngine.should_escalate(
+        user_query=p.user_input,
+        final_response=final_response,
+        eval_result=eval_result,
+        evidence_package=p.evidence_package,
+        action_decision=p.decision.action_decision if p.decision else None,
+        already_attempted=already_attempted,
+        evidence_items=p.evidence_items
+    )
+
+    final_response_source = "SAKI"
+    if should_esc:
+        gemini_text, esc_status, esc_latency = GeminiEscalationEngine.escalate_to_gemini(
+            user_query=p.user_input,
+            timeout=15.0
+        )
+        if gemini_text and len(gemini_text.strip()) > 10:
+            final_response = gemini_text.strip()
+            final_response_source = "GEMINI_FINAL_ESCALATION"
+        else:
+            final_response = "I'm sorry, but I wasn't able to retrieve verified current information to answer your question right now."
+            final_response_source = "CONTROLLED_FAILURE"
 
     # Memory Admission Evaluation (BEFORE persisting, so decision can influence storage)
     from backend.services.memory_admission import MemoryAdmissionEngine, MemoryCandidate, SOURCE_USER, TYPE_PERSONAL_MEMORY

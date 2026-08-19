@@ -101,6 +101,22 @@ export interface AppSettings {
   auto_keep_alive: string;
 }
 
+export interface ServerTimeData {
+  datetime: string;
+  time_12h: string;
+  time_24h: string;
+  date_display: string;
+  date_short: string;
+  day_of_week: string;
+  time_of_day: string;
+  time_emoji: string;
+  is_weekend: boolean;
+  day_type: string;
+  greeting: string;
+  human_description: string;
+  timezone: string;
+}
+
 const API_ENDPOINTS = [
   "", // Same-origin relative path (Proxied by Next.js)
   "http://127.0.0.1:8000",
@@ -336,4 +352,16 @@ export async function uploadFile(file: File): Promise<ChatAttachment> {
   }
 
   return res.json();
+}
+
+export async function getServerTime(): Promise<ServerTimeData | null> {
+  try {
+    const res = await fetchWithFallback("/api/time");
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn("Failed to fetch server time:", err);
+  }
+  return null;
 }

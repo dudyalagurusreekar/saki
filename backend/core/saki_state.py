@@ -35,6 +35,9 @@ class ContextState(BaseModel):
     recent_topic: str = Field(default="general", description="Summary of recent topic")
     consecutive_frustrations: int = Field(default=0, description="Streak of frustrating turns")
     session_duration_minutes: int = Field(default=0, description="Minutes since session start")
+    current_time_of_day: str = Field(default="afternoon", description="dawn, morning, afternoon, evening, night, late_night")
+    is_weekend: bool = Field(default=False, description="Whether it's Saturday or Sunday")
+    session_start_time: Optional[str] = Field(default=None, description="ISO timestamp of when the session started")
 
 
 class ConfidenceMetrics(BaseModel):

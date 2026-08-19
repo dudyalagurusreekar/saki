@@ -43,7 +43,7 @@ class GeminiSearchProvider:
                 "domain": "",
                 "provider": "gemini",
                 "provider_status": "FAILURE",
-                "error_detail": "GEMINI_DISABLED_OR_NO_KEY",
+                "error_detail": "GEMINI_CONFIGURATION_ERROR",
                 "fallback_from": None
             }]
 
@@ -52,16 +52,16 @@ class GeminiSearchProvider:
             model_name = getattr(settings, "GEMINI_SEARCH_MODEL", "gemini-2.5-flash")
             url = f"{GEMINI_API_ENDPOINT.format(model=model_name)}?key={api_key}"
 
-            # Task-oriented instruction for Gemini Google Search grounding
+            # Task-oriented instruction for Gemini Google Search grounding preserving intent
             task_prompt = (
                 f"TASK:\n"
-                f"Retrieve and extract the factual information required to answer the user's question.\n\n"
+                f"Retrieve and extract the verified factual information required to answer the user's question.\n\n"
                 f"USER QUESTION:\n"
                 f"{query}\n\n"
                 f"REQUIRED INFORMATION:\n"
-                f"- Exact entity identification and details\n"
-                f"- Core facts, dates, or figures requested\n"
-                f"- Supporting source facts\n\n"
+                f"- Exact entity identification, latest release/version numbers, dates, or figures requested\n"
+                f"- Official primary sources and URLs\n"
+                f"- Supporting factual evidence\n\n"
                 f"DO NOT:\n"
                 f"- Answer with conversational filler or unrelated details\n"
                 f"- Invent missing information or speculate\n"

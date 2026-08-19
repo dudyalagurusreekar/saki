@@ -1,0 +1,52 @@
+[
+  {
+    "label": "TEST A",
+    "query": "Vijayawada history about temples",
+    "entity": "Vijayawada",
+    "topic": "history",
+    "intent": "factual_lookup",
+    "temporal_requirement": "UNKNOWN",
+    "web_required": false,
+    "search_query": "history historical heritage Vijayawada",
+    "gemini_status": "SKIPPED",
+    "gemini_error": null,
+    "gemini_result_count": 0,
+    "evidence_count": 0,
+    "passed_to_model": false,
+    "selected_model": "phi3:latest",
+    "final_answer": "Hey there! If you're curious about Vijayawada's temples, they're rich with history and architecture. Each temple tells a story dating back centuries. For specific details, though, I'd love to know which temple you're interested in, so I can share cool facts with you! \ud83d\ude0a",
+    "latencies": {
+      "query_understanding_ms": 3.0,
+      "decision_ms": 2.0,
+      "provider_s": 0.0,
+      "pipeline_s": 0.02,
+      "model_s": 9.31,
+      "total_s": 9.34
+    }
+  },
+  {
+    "label": "TEST B",
+    "query": "latest FastAPI version",
+    "entity": "FastAPI",
+    "topic": "software_version",
+    "intent": "version_query",
+    "temporal_requirement": "CURRENT",
+    "web_required": true,
+    "search_query": "latest FastAPI version official release",
+    "gemini_status": "FAILURE",
+    "gemini_error": "HTTP_429",
+    "gemini_result_count": 1,
+    "evidence_count": 0,
+    "passed_to_model": false,
+    "selected_model": "qwen2.5-coder:7b",
+    "final_answer": "Hey there! \ud83d\ude0a I'm sorry, but I don't have verified records or active web search results to confirm the current version of FastAPI. If you have any specific questions about FastAPI or need assistance with something else, feel free to let me know! \ud83d\ude0a",
+    "latencies": {
+      "query_understanding_ms": 1.03,
+      "decision_ms": 0.0,
+      "provider_s": 0.99,
+      "pipeline_s": 2.16,
+      "model_s": 13.38,
+      "total_s": 16.52
+    }
+  }
+]

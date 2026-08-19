@@ -124,3 +124,14 @@ def get_settings():
 @router.post("/settings")
 def update_settings(payload: Dict[str, Any] = Body(...)):
     return save_persisted_settings(payload)
+
+
+@router.get("/time")
+def get_server_time():
+    """
+    Real-time clock endpoint providing rich temporal context.
+    Returns current time, time-of-day classification, greeting,
+    and human-readable descriptions for frontend display.
+    """
+    from backend.services.temporal_service import TemporalService
+    return TemporalService.get_api_response()

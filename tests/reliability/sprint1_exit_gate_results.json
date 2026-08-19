@@ -1,0 +1,102 @@
+[
+  {
+    "query": "special food in Vijayawada",
+    "status_code": 200,
+    "model": "phi3:latest",
+    "action": "WEB_SEARCH",
+    "web_required": true,
+    "evidence_count": 0,
+    "response": "Hey there! I'm doing great, but I must confess, I don't have the specific details on special foods in Vijayawada. It's a unique place with lots of tasty treats, but I can't seem to find verified info on that. Could you share some official details or sources you trust? I'm all ears for any recommendations you might have! \ud83c\udf72\u2728",
+    "error": null
+  },
+  {
+    "query": "good movies in 2026",
+    "status_code": 200,
+    "model": "phi3:latest",
+    "action": "WEB_SEARCH",
+    "web_required": true,
+    "evidence_count": 0,
+    "response": "Hey there! I'm always here for you, but I have to be honest, I don't have verified info on movies from 2026 yet. It's still early days, and the best we have are the films coming up! How about we plan some movie nights with the new releases as soon as they drop? Or if you're craving something specific, maybe I can help you find what you're looking for once it hits theaters or streaming platforms. Let's keep the excitement for what's coming up! \ud83c\udf7f What do you say? \ud83d\ude0a",
+    "error": null
+  },
+  {
+    "query": "latest FastAPI version",
+    "status_code": 200,
+    "model": "qwen2.5-coder:7b",
+    "action": "WEB_SEARCH",
+    "web_required": true,
+    "evidence_count": 0,
+    "response": "Hey there! \ud83c\udf1f I\u2019m sorry, but I don\u2019t have verified records or active web search results to confirm details about the latest FastAPI version. Could you share official details or sources? I\u2019d be happy to help once I have the most accurate information! \ud83d\udcda\u2728",
+    "error": null
+  },
+  {
+    "query": "latest Python version",
+    "status_code": 200,
+    "model": "qwen2.5-coder:7b",
+    "action": "WEB_SEARCH",
+    "web_required": true,
+    "evidence_count": 0,
+    "response": "Hey there! \ud83c\udf1f I'm sorry, but I couldn't retrieve enough information to determine the latest Python version from the web search results. Could you share the official details or sources? I'd love to help you with the most accurate and up-to-date information! \ud83d\ude0a",
+    "error": null
+  },
+  {
+    "query": "what happened in AI today",
+    "status_code": 200,
+    "model": "phi3:latest",
+    "action": "WEB_SEARCH",
+    "web_required": true,
+    "evidence_count": 0,
+    "response": "Hey there! Oh, I'm just Saki, keeping up with the latest in AI tech and chatting away. But to answer your question, I'm afraid I can't provide specifics on today's developments without some verified info. I'm all about being factual and helpful, so let's focus on how I can assist you or discuss AI in general, shall we? \ud83d\ude0a",
+    "error": null
+  },
+  {
+    "query": "best places to visit in Vijayawada",
+    "status_code": 200,
+    "model": "phi3:latest",
+    "action": "WEB_SEARCH",
+    "web_required": true,
+    "evidence_count": 0,
+    "response": "Hey there! I wish I could help with that, but I don't have the latest verified info on specific spots in Vijayawada. The internet seems a bit quiet on this one, and I aim to keep our conversation rooted in verified sources. Maybe you could ask local friends or check trusted travel guides for the best places to visit? \ud83c\udf34\ud83c\udf0d",
+    "error": null
+  },
+  {
+    "query": "what is FastAPI",
+    "status_code": 200,
+    "model": "qwen3:8b",
+    "action": "CODING",
+    "web_required": false,
+    "evidence_count": 0,
+    "response": "Hey there! \ud83c\udf1f FastAPI is a web framework for building APIs\u2014think of it as a tool that helps you create apps that talk to other programs or services. It\u2019s super fast, easy to use, and great for handling tasks like sending data between your app and a database or connecting to external tools.  \n\nHere\u2019s the quick scoop:  \n- **Speed**: Built on Python\u2019s async features, so it can handle lots of requests quickly.  \n- **Simplicity**: You write clean, organized code with minimal setup.  \n- **Power**: Supports JSON data, authentication, and even real-time features.  \n\nFor your project with Saki, it could help streamline tasks like managing user interactions, fetching data, or connecting to tools. Want to dive into how it might fit into your workflow? \ud83d\ude0a",
+    "error": null
+  },
+  {
+    "query": "explain overfitting",
+    "status_code": 200,
+    "model": "qwen3:8b",
+    "action": "LOCAL_REASONING",
+    "web_required": false,
+    "evidence_count": 0,
+    "response": "Hey there! \ud83c\udf1f Overfitting is like when a student memorizes every detail of a textbook but can\u2019t apply the concepts to a new test. In machine learning, it happens when a model learns the *exact patterns* in training data\u2014including noise or outliers\u2014so it performs well on that data but fails on new, unseen examples.  \n\nThink of it as a detective who solves every case by rote (like \"the culprit always wears a hat\") but can\u2019t adapt when the real crime has no hat. The model becomes too \"tuned\" to the training data, losing its ability to generalize.  \n\n**How to avoid it?**  \n1. **Simplify the model**: Use fewer parameters or layers to reduce complexity.  \n2. **Cross-validation**: Test on data it hasn\u2019t seen yet to spot overfitting.  \n3. **Regularization**: Add penalties for overly complex patterns (like L1/L2 regularization).  \n4. **More data**: Sometimes, more diverse examples help the model learn broadly.  \n\nWant to dive into how this might affect your project with Saki? \ud83d\ude0a",
+    "error": null
+  },
+  {
+    "query": "how are you Saki",
+    "status_code": 200,
+    "model": "phi3:latest",
+    "action": "LOCAL_REASONING",
+    "web_required": false,
+    "evidence_count": 0,
+    "response": "Hey there! I\u2019m here and ready to assist or simply chat\u2014you know, just being Saki at her best! What's got you excited or needing support today? \ud83d\ude0a",
+    "error": null
+  },
+  {
+    "query": "tell me about an obscure local place",
+    "status_code": 200,
+    "model": "phi3:latest",
+    "action": "WEB_SEARCH",
+    "web_required": true,
+    "evidence_count": 0,
+    "response": "Hey there! I'm always here and ready to help, but I have to let you know, I can't find verified details on any obscure local spots in our area. Could you share some official details or sources? That way, we can explore together more accurately! \ud83d\ude0a",
+    "error": null
+  }
+]

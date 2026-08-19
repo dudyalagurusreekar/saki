@@ -1,0 +1,282 @@
+[
+  {
+    "query_id": 1,
+    "query": "latest FastAPI version",
+    "selected_model": "qwen2.5-coder:7b",
+    "grounding_status": "INSUFFICIENT_EVIDENCE",
+    "source_mode": "WEB_GROUNDED",
+    "total_claims": 2,
+    "supported_claims": 0,
+    "unsupported_claims": 2,
+    "contradicted_claims": 0,
+    "critical_claims_supported": true,
+    "draft_answer": "Hey there! \ud83d\ude0a I'm sorry, but I don't have verified records or active web search results to confirm the current version of FastAPI. If you have any specific questions about FastAPI or need assistance with something else, feel free to let me know! \ud83d\ude0a",
+    "final_answer": "Hey there! \ud83d\ude0a I'm sorry, but I don't have verified records or active web search results to confirm the current version of FastAPI. If you have any specific questions about FastAPI or need assistance with something else, feel free to let me know! \ud83d\ude0a",
+    "claims": [
+      {
+        "id": "clm-1",
+        "text": "Hey there! \ud83d\ude0a I'm sorry, but I don't have verified records or active web search results to confirm the current version of FastAPI",
+        "importance": "NORMAL",
+        "support_status": "UNSUPPORTED",
+        "directness": "NO_SUPPORT",
+        "confidence": 0.0,
+        "reason": "Web evidence was required but no verified sources were retrieved."
+      },
+      {
+        "id": "clm-2",
+        "text": "If you have any specific questions about FastAPI or need assistance with something else, feel free to let me know! \ud83d\ude0a",
+        "importance": "NORMAL",
+        "support_status": "UNSUPPORTED",
+        "directness": "NO_SUPPORT",
+        "confidence": 0.0,
+        "reason": "Web evidence was required but no verified sources were retrieved."
+      }
+    ],
+    "evidence_count": 0,
+    "latencies": {
+      "pipeline_s": 2.27,
+      "model_generation_s": 9.86,
+      "grounding_eval_ms": 6.12,
+      "total_s": 12.13
+    }
+  },
+  {
+    "query_id": 2,
+    "query": "special food in Vijayawada",
+    "selected_model": "phi3:latest",
+    "grounding_status": "INSUFFICIENT_EVIDENCE",
+    "source_mode": "WEB_GROUNDED",
+    "total_claims": 2,
+    "supported_claims": 0,
+    "unsupported_claims": 2,
+    "contradicted_claims": 0,
+    "critical_claims_supported": true,
+    "draft_answer": "Hey there! \ud83d\ude0a It looks like I don't have the latest info on special foods in Vijayawada. If you're looking to explore some local flavors, maybe you could check out some food blogs or ask someone in Vijayawada directly for recommendations? I can help with suggestions or find nearby places to try out if that interests you! \ud83c\udf72 What are some foods you\u2019ve enjoyed in other places? \ud83d\ude0a",
+    "final_answer": "Hey there! \ud83d\ude0a It looks like I don't have the latest info on special foods in Vijayawada. If you're looking to explore some local flavors, maybe you could check out some food blogs or ask someone in Vijayawada directly for recommendations? I can help with suggestions or find nearby places to try out if that interests you! \ud83c\udf72 What are some foods you\u2019ve enjoyed in other places? \ud83d\ude0a",
+    "claims": [
+      {
+        "id": "clm-1",
+        "text": "Hey there! \ud83d\ude0a It looks like I don't have the latest info on special foods in Vijayawada",
+        "importance": "NORMAL",
+        "support_status": "UNSUPPORTED",
+        "directness": "NO_SUPPORT",
+        "confidence": 0.0,
+        "reason": "Web evidence was required but no verified sources were retrieved."
+      },
+      {
+        "id": "clm-2",
+        "text": "I can help with suggestions or find nearby places to try out if that interests you! \ud83c\udf72 What are some foods you\u2019ve enjoyed in other places? \ud83d\ude0a",
+        "importance": "NORMAL",
+        "support_status": "UNSUPPORTED",
+        "directness": "NO_SUPPORT",
+        "confidence": 0.0,
+        "reason": "Web evidence was required but no verified sources were retrieved."
+      }
+    ],
+    "evidence_count": 0,
+    "latencies": {
+      "pipeline_s": 1.76,
+      "model_generation_s": 10.41,
+      "grounding_eval_ms": 0.0,
+      "total_s": 12.17
+    }
+  },
+  {
+    "query_id": 3,
+    "query": "Vijayawada history about temples",
+    "selected_model": "phi3:latest",
+    "grounding_status": "STATIC",
+    "source_mode": "STATIC_KNOWLEDGE",
+    "total_claims": 0,
+    "supported_claims": 0,
+    "unsupported_claims": 0,
+    "contradicted_claims": 0,
+    "critical_claims_supported": true,
+    "draft_answer": "Hey there! I'm all ears for Vijayawada's temple history! I'm curious to learn about the oldest and most visited ones, but remember, my memory might not be up to date with the very latest. If you know of any specific temples or stories, I'd love to hear them! Maybe you've got a family tale or a local legend? Share away! \ud83d\ude0a",
+    "final_answer": "Hey there! I'm all ears for Vijayawada's temple history! I'm curious to learn about the oldest and most visited ones, but remember, my memory might not be up to date with the very latest. If you know of any specific temples or stories, I'd love to hear them! Maybe you've got a family tale or a local legend? Share away! \ud83d\ude0a",
+    "claims": [],
+    "evidence_count": 0,
+    "latencies": {
+      "pipeline_s": 0.0,
+      "model_generation_s": 4.0,
+      "grounding_eval_ms": 0.54,
+      "total_s": 4.0
+    }
+  },
+  {
+    "query_id": 4,
+    "query": "what is FastAPI",
+    "selected_model": "qwen3:8b",
+    "grounding_status": "STATIC",
+    "source_mode": "STATIC_KNOWLEDGE",
+    "total_claims": 0,
+    "supported_claims": 0,
+    "unsupported_claims": 0,
+    "contradicted_claims": 0,
+    "critical_claims_supported": true,
+    "draft_answer": "Hey there! \ud83d\ude0a  \n\nFastAPI is like a supercharged toolkit for building web services\u2014think of it as a smart, modern way to create APIs (those fancy \u201cback-end\u201d systems that power apps). It\u2019s built on Python and makes it super easy to handle things like user requests, data validation, and even async tasks (like juggling multiple requests at once).  \n\nHere\u2019s the vibe:  \n- **Fast**: It\u2019s optimized for speed, so your app can handle more traffic without slowing down.  \n- **Type-safe**: It loves clear rules (like typing your code), which helps catch mistakes early.  \n- **Modern**: It\u2019s designed for async work, so it\u2019s great for things like real-time updates or handling lots of users.  \n\nYou can use it to build everything from simple tools to complex systems\u2014kinda like a versatile wrench for your coding projects. Want to dive into how it works, or maybe you\u2019re curious about what it\u2019s good for? \ud83d\ude0a",
+    "final_answer": "Hey there! \ud83d\ude0a  \n\nFastAPI is like a supercharged toolkit for building web services\u2014think of it as a smart, modern way to create APIs (those fancy \u201cback-end\u201d systems that power apps). It\u2019s built on Python and makes it super easy to handle things like user requests, data validation, and even async tasks (like juggling multiple requests at once).  \n\nHere\u2019s the vibe:  \n- **Fast**: It\u2019s optimized for speed, so your app can handle more traffic without slowing down.  \n- **Type-safe**: It loves clear rules (like typing your code), which helps catch mistakes early.  \n- **Modern**: It\u2019s designed for async work, so it\u2019s great for things like real-time updates or handling lots of users.  \n\nYou can use it to build everything from simple tools to complex systems\u2014kinda like a versatile wrench for your coding projects. Want to dive into how it works, or maybe you\u2019re curious about what it\u2019s good for? \ud83d\ude0a",
+    "claims": [],
+    "evidence_count": 0,
+    "latencies": {
+      "pipeline_s": 0.83,
+      "model_generation_s": 22.8,
+      "grounding_eval_ms": 1.01,
+      "total_s": 23.63
+    }
+  },
+  {
+    "query_id": 5,
+    "query": "good movies in 2026",
+    "selected_model": "phi3:latest",
+    "grounding_status": "INSUFFICIENT_EVIDENCE",
+    "source_mode": "WEB_GROUNDED",
+    "total_claims": 3,
+    "supported_claims": 0,
+    "unsupported_claims": 3,
+    "contradicted_claims": 0,
+    "critical_claims_supported": false,
+    "draft_answer": "Hey there! \ud83d\ude0a I'm afraid I don't have the scoop on movies from 2026 yet, since I can't look up future releases. \ud83c\udfac But hey, I can recommend some current gems if you're in the mood for action, love, or crime. How about \"The Old Guard\" or \"Locke\"? They're both thrilling and keep things interesting. When the time comes, I'll be here ready to chat about the future movies with you! \ud83d\ude0a What are some of your favorite movie themes that always get you pumped up? \ud83c\udfa5",
+    "final_answer": "How about \"The Old Guard\" or \"Locke\"? They're both thrilling and keep things interesting.",
+    "claims": [
+      {
+        "id": "clm-1",
+        "text": "Hey there! \ud83d\ude0a I'm afraid I don't have the scoop on movies from 2026 yet, since I can't look up future releases. \ud83c\udfac But hey, I can recommend some current gems if you're in the mood for action, love, or crime",
+        "importance": "CRITICAL",
+        "support_status": "UNSUPPORTED",
+        "directness": "NO_SUPPORT",
+        "confidence": 0.0,
+        "reason": "Web evidence was required but no verified sources were retrieved."
+      },
+      {
+        "id": "clm-2",
+        "text": "They're both thrilling and keep things interesting",
+        "importance": "NORMAL",
+        "support_status": "UNSUPPORTED",
+        "directness": "NO_SUPPORT",
+        "confidence": 0.0,
+        "reason": "Web evidence was required but no verified sources were retrieved."
+      },
+      {
+        "id": "clm-3",
+        "text": "When the time comes, I'll be here ready to chat about the future movies with you! \ud83d\ude0a What are some of your favorite movie themes that always get you pumped up? \ud83c\udfa5",
+        "importance": "NORMAL",
+        "support_status": "UNSUPPORTED",
+        "directness": "NO_SUPPORT",
+        "confidence": 0.0,
+        "reason": "Web evidence was required but no verified sources were retrieved."
+      }
+    ],
+    "evidence_count": 0,
+    "latencies": {
+      "pipeline_s": 1.74,
+      "model_generation_s": 11.97,
+      "grounding_eval_ms": 1.19,
+      "total_s": 13.71
+    }
+  },
+  {
+    "query_id": 6,
+    "query": "latest Python version",
+    "selected_model": "qwen2.5-coder:7b",
+    "grounding_status": "INSUFFICIENT_EVIDENCE",
+    "source_mode": "WEB_GROUNDED",
+    "total_claims": 2,
+    "supported_claims": 0,
+    "unsupported_claims": 2,
+    "contradicted_claims": 0,
+    "critical_claims_supported": true,
+    "draft_answer": "Hey there! \ud83d\ude0a I'm sorry, but I don't have verified records or active web search results to confirm the latest version of Python. If you have any specific questions about Python or need assistance with something else, feel free to let me know! \ud83d\ude0a",
+    "final_answer": "Hey there! \ud83d\ude0a I'm sorry, but I don't have verified records or active web search results to confirm the latest version of Python. If you have any specific questions about Python or need assistance with something else, feel free to let me know! \ud83d\ude0a",
+    "claims": [
+      {
+        "id": "clm-1",
+        "text": "Hey there! \ud83d\ude0a I'm sorry, but I don't have verified records or active web search results to confirm the latest version of Python",
+        "importance": "NORMAL",
+        "support_status": "UNSUPPORTED",
+        "directness": "NO_SUPPORT",
+        "confidence": 0.0,
+        "reason": "Web evidence was required but no verified sources were retrieved."
+      },
+      {
+        "id": "clm-2",
+        "text": "If you have any specific questions about Python or need assistance with something else, feel free to let me know! \ud83d\ude0a",
+        "importance": "NORMAL",
+        "support_status": "UNSUPPORTED",
+        "directness": "NO_SUPPORT",
+        "confidence": 0.0,
+        "reason": "Web evidence was required but no verified sources were retrieved."
+      }
+    ],
+    "evidence_count": 0,
+    "latencies": {
+      "pipeline_s": 0.99,
+      "model_generation_s": 13.47,
+      "grounding_eval_ms": 0.0,
+      "total_s": 14.45
+    }
+  },
+  {
+    "query_id": 7,
+    "query": "tell me about an obscure local temple",
+    "selected_model": "phi3:latest",
+    "grounding_status": "INSUFFICIENT_EVIDENCE",
+    "source_mode": "WEB_GROUNDED",
+    "total_claims": 2,
+    "supported_claims": 0,
+    "unsupported_claims": 2,
+    "contradicted_claims": 0,
+    "critical_claims_supported": false,
+    "draft_answer": "I'm sorry, but I don't have verified records or active web search results to tell you about an obscure local temple. Could you share official details or sources with me? That way, I can give you accurate information! \ud83d\ude0a",
+    "final_answer": "Could you share official details or sources with me? That way, I can give you accurate information! \ud83d\ude0a",
+    "claims": [
+      {
+        "id": "clm-1",
+        "text": "I'm sorry, but I don't have verified records or active web search results to tell you about an obscure local temple",
+        "importance": "CRITICAL",
+        "support_status": "UNSUPPORTED",
+        "directness": "NO_SUPPORT",
+        "confidence": 0.0,
+        "reason": "Web evidence was required but no verified sources were retrieved."
+      },
+      {
+        "id": "clm-2",
+        "text": "That way, I can give you accurate information! \ud83d\ude0a",
+        "importance": "NORMAL",
+        "support_status": "UNSUPPORTED",
+        "directness": "NO_SUPPORT",
+        "confidence": 0.0,
+        "reason": "Web evidence was required but no verified sources were retrieved."
+      }
+    ],
+    "evidence_count": 0,
+    "latencies": {
+      "pipeline_s": 5.13,
+      "model_generation_s": 10.2,
+      "grounding_eval_ms": 1.03,
+      "total_s": 15.34
+    }
+  },
+  {
+    "query_id": 8,
+    "query": "tell me something about Vijayawada",
+    "selected_model": "phi3:latest",
+    "grounding_status": "STATIC",
+    "source_mode": "STATIC_KNOWLEDGE",
+    "total_claims": 0,
+    "supported_claims": 0,
+    "unsupported_claims": 0,
+    "contradicted_claims": 0,
+    "critical_claims_supported": true,
+    "draft_answer": "Hey there! Vijayawada, known as the \"Gateway of Andhra Pradesh,\" is a bustling city with a rich history and cultural heritage. It's home to the Thousand Pillars Temple, a stunning example of Dravidian architecture. Plus, it's a vibrant place with delicious food and lively festivals like Pandita Ratha Yatra. Want to hear about a cool fact or landmark? \ud83d\ude0a",
+    "final_answer": "Hey there! Vijayawada, known as the \"Gateway of Andhra Pradesh,\" is a bustling city with a rich history and cultural heritage. It's home to the Thousand Pillars Temple, a stunning example of Dravidian architecture. Plus, it's a vibrant place with delicious food and lively festivals like Pandita Ratha Yatra. Want to hear about a cool fact or landmark? \ud83d\ude0a",
+    "claims": [],
+    "evidence_count": 0,
+    "latencies": {
+      "pipeline_s": 0.01,
+      "model_generation_s": 4.34,
+      "grounding_eval_ms": 0.55,
+      "total_s": 4.35
+    }
+  }
+]

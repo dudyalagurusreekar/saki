@@ -6,9 +6,10 @@ prevent prompt repetition, and ensure clean, comfortable representation.
 """
 
 import re
-from typing import List, Optional
+from typing import List, Optional, Any
 from pydantic import BaseModel, Field
 from backend.services.response_planner import ResponsePlan
+from backend.services.grounding_verifier import GroundingVerifierEngine, AnswerGroundingAssessment
 
 
 class EvaluationResult(BaseModel):
@@ -17,6 +18,7 @@ class EvaluationResult(BaseModel):
     persona_issues: List[str] = Field(default_factory=list, description="Identified persona or tone flaws")
     repaired_text: str = Field(description="Cleaned, polished response ready for delivery")
     needs_regeneration: bool = Field(default=False, description="Whether response was so degraded it requires regen")
+    grounding_assessment: Optional[AnswerGroundingAssessment] = Field(default=None, description="Sprint 7 claim-level grounding verification")
 
 
 # Internal leak patterns that should never reach the user
@@ -94,10 +96,15 @@ def format_comfortable_layout(text: str) -> str:
 def evaluate_response(
     draft_text: str,
     plan: Optional[ResponsePlan] = None,
-    mode: str = "casual"
+    mode: str = "casual",
+    evidence_items: Optional[List[Any]] = None,
+    evidence_package: Optional[Any] = None,
+    action_decision: Optional[Any] = None,
+    user_query: Optional[str] = None
 ) -> EvaluationResult:
     """
     Scans draft response for internal leaks, robotic tropes, and cleans layout for comfortable reading.
+    In Sprint 7, also performs claim-level factual grounding against retrieved evidence.
     """
     if not draft_text or len(draft_text.strip()) == 0:
         return EvaluationResult(
@@ -136,6 +143,19 @@ def evaluate_response(
         issues.append("response_became_empty_after_cleanse")
         cleaned = "Got it! Let's jump right into it. 🚀"
 
+    # Step 6: Sprint 7 Claim-Level Grounding Verification
+    grounding_assessment = None
+    if evidence_items or evidence_package or (action_decision and getattr(action_decision, "requires_world_access", False)):
+        grounding_assessment = GroundingVerifierEngine.evaluate_answer_grounding(
+            draft_text=cleaned,
+            evidence_items=evidence_items,
+            evidence_package=evidence_package,
+            action_decision=action_decision,
+            user_query=user_query
+        )
+        if grounding_assessment.repaired_answer and grounding_assessment.repaired_answer != cleaned:
+            cleaned = grounding_assessment.repaired_answer
+
     score = max(0.0, round(1.0 - penalty, 2))
     passed = score >= 0.50
 
@@ -144,5 +164,6 @@ def evaluate_response(
         score=score,
         persona_issues=issues,
         repaired_text=cleaned,
-        needs_regeneration=(score < 0.30)
+        needs_regeneration=(score < 0.30),
+        grounding_assessment=grounding_assessment
     )

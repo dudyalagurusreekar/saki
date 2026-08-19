@@ -555,9 +555,9 @@ class DiagnosticTracer:
 class WorldAccessManager:
     """
     Executive orchestrator for native World Access external search & fetch capabilities.
+    Delegates to the authoritative WebIntelligenceController for single execution path.
     """
     _last_diagnostic_trace: Optional[Dict[str, Any]] = None
-
 
     @classmethod
     def execute_action(
@@ -567,59 +567,12 @@ class WorldAccessManager:
         attachments: Optional[List[Dict[str, Any]]] = None
     ) -> Tuple[List[EvidenceItem], str]:
         """
-        Executes external World Access operation safely:
-        1. Formulates OutboundRequest
-        2. Evaluates PrivacyPolicyEngine boundary (Fails closed on BLOCK)
-        3. Dispatches to GeminiSearchProvider (with DuckDuckGo fallback) or WebFetcher
-        4. Normalizes results into EvidenceItems & formats isolated XML prompt block
+        Executes external World Access operation via WebIntelligenceController.
         """
-        if not action_decision.requires_world_access:
-            return [], ""
-
-        # 1. Privacy Boundary Check
-        outbound_req = OutboundRequest(
-            action=action_decision.action,
-            destination="PUBLIC_SEARCH" if action_decision.action in [ACTION_WEB_SEARCH, ACTION_WEB_RESEARCH] else "PUBLIC_WEBPAGE",
-            query=user_query,
-            requested_capability=action_decision.action,
-            privacy_mode=settings.PRIVACY_MODE
-        )
-        privacy_decision = PrivacyPolicyEngine.evaluate_request(outbound_req)
-        PrivacyAuditLogger.log_decision(privacy_decision, action=action_decision.action)
-
-        if privacy_decision.decision in [DECISION_BLOCK, DECISION_REQUIRE_CONFIRMATION]:
-            # Fail-closed: Return empty evidence if blocked by privacy gate
-            return [], ""
-
-        sanitized_query = privacy_decision.sanitized_request or user_query
-
-        # 2. Dispatch based on Action Type
-        evidence_list: List[EvidenceItem] = []
-
-        from backend.services.gemini_search import GeminiSearchProvider
-
-        if action_decision.action == ACTION_WEB_FETCH:
-            # Extract URL from query
-            url_match = re.search(r"https?://[^\s]+", user_query)
-            if url_match:
-                target_url = url_match.group(0)
-                success, title, text = WebFetcher.fetch_url(target_url)
-                if success:
-                    item = EvidenceEngine.normalize_fetch_result(target_url, title, text)
-                    evidence_list.append(item)
-            else:
-                # Fallback to search if no URL provided
-                raw_results = GeminiSearchProvider.search(sanitized_query, max_results=3)
-                evidence_list = EvidenceEngine.normalize_search_results(sanitized_query, raw_results)
-
-        elif action_decision.action in [ACTION_WEB_SEARCH, ACTION_WEB_RESEARCH]:
-            max_r = 5 if action_decision.action == ACTION_WEB_RESEARCH else 3
-            raw_results = GeminiSearchProvider.search(sanitized_query, max_results=max_r)
-            evidence_list = EvidenceEngine.normalize_search_results(sanitized_query, raw_results)
-
-        # 3. Format Prompt Injection Isolated XML Block
-        prompt_block = EvidenceEngine.format_evidence_prompt_block(evidence_list)
-        return evidence_list, prompt_block
+        from backend.services.web_controller import WebIntelligenceController
+        res = WebIntelligenceController.execute(user_query, action_decision, attachments)
+        cls._last_diagnostic_trace = WebIntelligenceController._last_diagnostic_trace
+        return res.evidence_items, res.grounded_prompt_block
 
     @classmethod
     def execute_action_package(
@@ -629,48 +582,13 @@ class WorldAccessManager:
         attachments: Optional[List[Dict[str, Any]]] = None
     ) -> Tuple[List[EvidenceItem], str, Optional[Any]]:
         """
-        Executes World Access operation and processes through EvidenceIntelligenceEngine
-        to return normalized evidence items, grounded XML prompt block, and structured EvidencePackage.
+        Executes World Access operation via WebIntelligenceController and returns
+        normalized evidence items, grounded XML prompt block, and structured EvidencePackage.
         """
-        evidence_list, prompt_block = cls.execute_action(action_decision, user_query, attachments)
-        if not evidence_list:
-            return [], "", None
-
-        from backend.services.evidence_engine import EvidenceIntelligenceEngine
-        raw_items = [
-            {
-                "title": e.title,
-                "snippet": e.content,
-                "url": e.url,
-                "domain": e.domain,
-                "provider": e.provenance.get("provider", "Gemini"),
-                "provider_status": e.provenance.get("provider_status", "SUCCESS"),
-                "fallback_from": e.provenance.get("fallback_from"),
-                "error_detail": e.provenance.get("error_detail")
-            }
-            for e in evidence_list
-        ]
-        is_verification = (action_decision.query_intent == "verification")
-        package = EvidenceIntelligenceEngine.process_and_synthesize(
-            query=user_query,
-            raw_items=raw_items,
-            freshness_requirement=action_decision.freshness_requirement,
-            is_verification_mode=is_verification
-        )
-        grounded_block = EvidenceIntelligenceEngine.format_grounded_prompt_block(package)
-
-        # Log structured diagnostic trace
-        tracer = DiagnosticTracer.build_trace(
-            user_query=user_query,
-            action=action_decision.action,
-            sanitized_query=user_query,
-            package=package,
-            final_prompt_context=grounded_block or prompt_block
-        )
-        WorldAccessManager._last_diagnostic_trace = tracer
-
-        return package.evidence_items, grounded_block or prompt_block, package
-
+        from backend.services.web_controller import WebIntelligenceController
+        res = WebIntelligenceController.execute(user_query, action_decision, attachments)
+        cls._last_diagnostic_trace = WebIntelligenceController._last_diagnostic_trace
+        return res.evidence_items, res.grounded_prompt_block, res.evidence_package
 
     @classmethod
     def execute_research(
@@ -683,5 +601,6 @@ class WorldAccessManager:
         """
         from backend.services.research_planner import ResearchPlanner
         return ResearchPlanner.execute_research(user_query, depth_level=depth_level)
+
 
 

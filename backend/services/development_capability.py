@@ -119,6 +119,8 @@ class RepositoryScanner:
                     test_dirs.append(entry.name)
                 elif entry.name in ["backend", "frontend", "src", "brain", "docs"]:
                     src_dirs.append(entry.name)
+                    if (entry / "tests").is_dir():
+                        test_dirs.append(f"{entry.name}/tests")
             elif entry.is_file():
                 if entry.name in ["pyproject.toml", "requirements.txt", "package.json", "tsconfig.json", "main.py"]:
                     config_files.append(entry.name)

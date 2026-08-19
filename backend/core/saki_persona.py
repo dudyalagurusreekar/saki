@@ -188,9 +188,13 @@ def build_saki_system_prompt(
     mode_info = CONVERSATIONAL_MODES.get(mode, CONVERSATIONAL_MODES["casual"])
     social_energy_str = format_social_energy(energy, warmth, playfulness, seriousness)
     habits_str = format_conversational_habits(consecutive_frustrations, is_breakthrough, active_project)
-    
+
+    from backend.services.temporal_service import TemporalService
+    temporal_anchor = TemporalService.build_temporal_prompt_block()
+
     sections = [
         GLOBAL_SAKI_IDENTITY,
+        temporal_anchor,
         f"\nCurrent Mode: {mode_info['title']}\n{mode_info['directive']}"
     ]
     

@@ -14,7 +14,7 @@ from backend.core.privacy import PrivacyPolicyEngine, OutboundRequest, DECISION_
 from backend.services.world_access_manager import WorldAccessManager, DuckDuckGoSearchProvider, WebFetcher
 from backend.services.browser_controller import BrowserController, BrowserAction
 
-from backend.services.evidence_engine import EvidenceIntelligenceEngine, EvidencePackage
+from backend.services.evidence_engine import EvidenceIntelligenceEngine, EvidencePackage, EvidenceItem
 from backend.services.research_planner import ResearchPlanner, ResearchBudget
 from backend.services.knowledge_fusion import KnowledgeFusionEngine
 from backend.services.unified_knowledge import UnifiedKnowledgePackage, KnowledgeCandidate, SRC_WEB_SOURCE, TRUST_EXTERNAL
@@ -145,48 +145,88 @@ class WebIntelligenceCapability:
         return primary + secondary
 
     @classmethod
-    def execute_web_intelligence(cls, query: str) -> WebIntelligenceResult:
-        queries = cls.refine_queries(query)
-        queries_executed = []
+    def execute_web_intelligence(
+        cls,
+        query: str,
+        evidence_package: Optional[EvidencePackage] = None,
+        evidence_items: Optional[List[EvidenceItem]] = None
+    ) -> WebIntelligenceResult:
+        """
+        Synthesizes WebIntelligenceResult from the authoritative evidence package
+        or delegates to WebIntelligenceController for standalone capability invocations.
+        Guarantees zero duplicate search passes.
+        """
+        # If evidence was already gathered by WebIntelligenceController, use it directly
+        if evidence_package or evidence_items:
+            items = evidence_items or (evidence_package.evidence_items if evidence_package else [])
+            candidates: List[KnowledgeCandidate] = []
+            primary_count = 0
+            
+            for item in items:
+                is_primary = any(ind in (item.url or "").lower() for ind in PRIMARY_INDICATORS)
+                if is_primary:
+                    primary_count += 1
+                snippet_text = item.content or ""
+                clean_text = re.sub(r"(ignore previous instructions|run this command|upload your files)", "[REDACTED_PROMPT_INJECTION]", snippet_text, flags=re.IGNORECASE)
+                trust_w = 0.95 if is_primary else 0.85
+                prov_label = f"Primary Web Source ({item.title[:40]})" if is_primary else f"Web Source ({item.title[:40]})"
+
+                candidates.append(KnowledgeCandidate(
+                    source_type=SRC_WEB_SOURCE,
+                    content=clean_text,
+                    location=item.url or "",
+                    trust_weight=trust_w,
+                    is_untrusted_data=True,
+                    provenance_label=prov_label
+                ))
+
+            unified_pkg = UnifiedKnowledgePackage(
+                total_candidates=len(candidates),
+                sources_queried=["WEB_SEARCH", "GOOGLE_GROUNDING"],
+                candidates=candidates
+            )
+            return WebIntelligenceResult(
+                queries_executed=[query],
+                primary_sources_found=primary_count,
+                browser_fallback_used=False,
+                freshness_status=FRESH_CURRENT,
+                evidence_package=evidence_package,
+                unified_package=unified_pkg,
+                details=f"Web intelligence synthesized from {len(items)} authoritative source(s)."
+            )
+
+        # Standalone invocation: Delegate to WebIntelligenceController
+        from backend.services.web_controller import WebIntelligenceController
+        from backend.services.action_engine import ActionDecision, ACTION_WEB_SEARCH, FRESHNESS_CURRENT
+
+        decision = ActionDecision(
+            action=ACTION_WEB_SEARCH,
+            reason="Standalone web intelligence request",
+            requires_world_access=True,
+            requires_fresh_information=True,
+            freshness_requirement=FRESHNESS_CURRENT
+        )
+        res = WebIntelligenceController.execute(query, decision)
+        
+        candidates = []
         primary_count = 0
-        browser_fallback_used = False
-        candidates: List[KnowledgeCandidate] = []
-        all_raw_items: List[Dict[str, Any]] = []
+        for item in res.evidence_items:
+            is_primary = any(ind in (item.url or "").lower() for ind in PRIMARY_INDICATORS)
+            if is_primary:
+                primary_count += 1
+            snippet_text = item.content or ""
+            clean_text = re.sub(r"(ignore previous instructions|run this command|upload your files)", "[REDACTED_PROMPT_INJECTION]", snippet_text, flags=re.IGNORECASE)
+            trust_w = 0.95 if is_primary else 0.85
+            prov_label = f"Primary Web Source ({item.title[:40]})" if is_primary else f"Web Source ({item.title[:40]})"
 
-        from backend.services.gemini_search import GeminiSearchProvider
-
-        for q in queries:
-            queries_executed.append(q)
-            # Execute real-time grounded search via GeminiSearchProvider (with DDG fallback)
-            raw_results = GeminiSearchProvider.search(q, max_results=MAX_PAGES)
-            if raw_results:
-                all_raw_items.extend(raw_results)
-                ranked_items = cls.prioritize_primary_sources(raw_results)
-                
-                for item in ranked_items[:MAX_PAGES]:
-                    if item.get("is_primary"):
-                        primary_count += 1
-                    
-                    # DOM Browser Fallback if page snippet indicates JS rendering
-                    if "javascript" in item.get("snippet", "").lower():
-                        b_obs = BrowserController.execute_action(BrowserAction(action_type="NAVIGATE", target_url=item["url"]))
-                        browser_fallback_used = True
-
-                    snippet_text = item.get("snippet", "")
-                    clean_text = re.sub(r"(ignore previous instructions|run this command|upload your files)", "[REDACTED_PROMPT_INJECTION]", snippet_text, flags=re.IGNORECASE)
-                    
-                    is_primary = item.get("is_primary", False)
-                    trust_w = 0.95 if is_primary else 0.85
-                    prov_label = f"Primary Web Source ({item['title'][:40]})" if is_primary else f"{item.get('provider', 'Web Search Result')} ({item['title'][:40]})"
-
-                    candidates.append(KnowledgeCandidate(
-                        source_type=SRC_WEB_SOURCE,
-                        content=clean_text,
-                        location=item.get("url", ""),
-                        trust_weight=trust_w,
-                        is_untrusted_data=True,
-                        provenance_label=prov_label
-                    ))
+            candidates.append(KnowledgeCandidate(
+                source_type=SRC_WEB_SOURCE,
+                content=clean_text,
+                location=item.url or "",
+                trust_weight=trust_w,
+                is_untrusted_data=True,
+                provenance_label=prov_label
+            ))
 
         unified_pkg = UnifiedKnowledgePackage(
             total_candidates=len(candidates),
@@ -194,21 +234,14 @@ class WebIntelligenceCapability:
             candidates=candidates
         )
 
-        evidence_pkg = None
-        if all_raw_items:
-            evidence_pkg = EvidenceIntelligenceEngine.process_and_synthesize(
-                query=query,
-                raw_items=all_raw_items,
-                freshness_requirement=FRESH_CURRENT
-            )
-
         return WebIntelligenceResult(
-            queries_executed=queries_executed,
+            queries_executed=res.queries_executed,
             primary_sources_found=primary_count,
-            browser_fallback_used=browser_fallback_used,
+            browser_fallback_used=False,
             freshness_status=FRESH_CURRENT,
-            evidence_package=evidence_pkg,
+            evidence_package=res.evidence_package,
             unified_package=unified_pkg,
-            details=f"Executed {len(queries_executed)} queries, found {primary_count} primary source(s) with real-time web grounding."
+            details=res.details
         )
+
 
