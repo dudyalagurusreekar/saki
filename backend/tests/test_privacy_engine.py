@@ -37,7 +37,7 @@ def test_phone_number_sanitization():
 
 
 def test_api_key_block():
-    req = OutboundRequest(query="Search for AIzaSyBJej43jDBLEVqbjp4GH6UfSRktBl6hrnc API key info", privacy_mode="BALANCED")
+    req = OutboundRequest(query="Search for AIzaSy_FAKE_API_KEY_DO_NOT_USE_01234567 API key info", privacy_mode="BALANCED")
     decision = PrivacyPolicyEngine.evaluate_request(req)
     assert decision.decision == DECISION_BLOCK
     assert "GOOGLE_API_KEY" in decision.blocked_items
@@ -45,14 +45,14 @@ def test_api_key_block():
 
 
 def test_bearer_token_block():
-    req = OutboundRequest(query="Fetch data using Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c", privacy_mode="BALANCED")
+    req = OutboundRequest(query="Fetch data using Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmYWtlIjoidGVzdF9wYXlsb2FkX2RhdGEifQ.ZmFrZV9zaWduYXR1cmVfZm9yX3Rlc3Rpbmdfb25seQ", privacy_mode="BALANCED")
     decision = PrivacyPolicyEngine.evaluate_request(req)
     assert decision.decision == DECISION_BLOCK
     assert "BEARER_TOKEN" in decision.blocked_items or "JWT_TOKEN" in decision.blocked_items
 
 
 def test_jwt_block():
-    req = OutboundRequest(query="Check JWT eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c", privacy_mode="BALANCED")
+    req = OutboundRequest(query="Check JWT eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmYWtlIjoidGVzdF9wYXlsb2FkX2RhdGEifQ.ZmFrZV9zaWduYXR1cmVfZm9yX3Rlc3Rpbmdfb25seQ", privacy_mode="BALANCED")
     decision = PrivacyPolicyEngine.evaluate_request(req)
     assert decision.decision == DECISION_BLOCK
     assert "JWT_TOKEN" in decision.blocked_items
@@ -123,12 +123,12 @@ def test_fail_closed_on_exception():
 
 
 def test_audit_log_does_not_contain_secrets():
-    req = OutboundRequest(query="Search AIzaSyBJej43jDBLEVqbjp4GH6UfSRktBl6hrnc", privacy_mode="BALANCED")
+    req = OutboundRequest(query="Search AIzaSy_FAKE_API_KEY_DO_NOT_USE_01234567", privacy_mode="BALANCED")
     decision = PrivacyPolicyEngine.evaluate_request(req)
     log_data = PrivacyAuditLogger.log_decision(decision)
     
     assert log_data["decision"] == DECISION_BLOCK
-    assert "AIzaSyBJej43jDBLEVqbjp4GH6UfSRktBl6hrnc" not in str(log_data)
+    assert "AIzaSy_FAKE_API_KEY_DO_NOT_USE_01234567" not in str(log_data)
     assert "GOOGLE_API_KEY" in log_data["blocked_descriptors"]
 
 

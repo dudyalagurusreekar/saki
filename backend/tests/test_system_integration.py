@@ -45,7 +45,7 @@ def test_single_memory_and_adaptive_preference():
 # 3. PRIVACY & PERMISSION BOUNDARY SECURITY TEST
 # -------------------------
 def test_privacy_boundary_blocks_secret_exfiltration():
-    req = OutboundRequest(query="My secret API key is AIzaSy123456789012345678901234567890123", action="WEB_SEARCH")
+    req = OutboundRequest(query="My secret API key is AIzaSy_FAKE_API_KEY_DO_NOT_USE_01234567", action="WEB_SEARCH")
     decision = PrivacyPolicyEngine.evaluate_request(req)
     assert decision.decision == DECISION_BLOCK
 

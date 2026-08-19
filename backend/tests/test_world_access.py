@@ -131,7 +131,7 @@ def test_world_access_manager_privacy_blocked():
         requires_world_access=True
     )
     # Query containing API key triggers Privacy Engine BLOCK
-    items, xml_block = WorldAccessManager.execute_action(action, "Search online AIzaSyBJej43jDBLEVqbjp4GH6UfSRktBl6hrnc")
+    items, xml_block = WorldAccessManager.execute_action(action, "Search online AIzaSy_FAKE_API_KEY_DO_NOT_USE_01234567")
     
     assert items == []
     assert xml_block == ""
