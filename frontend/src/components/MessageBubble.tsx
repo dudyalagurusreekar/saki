@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { ChatAttachment } from "../lib/api";
+import { SakiTheme } from "../lib/theme";
 
 interface MessageBubbleProps {
   role: string;
   text: string;
   attachments?: ChatAttachment[];
-  theme?: "clear_sky" | "night_sky";
+  theme?: SakiTheme;
   onRetry?: () => void;
 }
 
@@ -13,7 +14,7 @@ export default function MessageBubble({
   role, 
   text, 
   attachments = [], 
-  theme = "clear_sky",
+  theme = "night_sky",
   onRetry 
 }: MessageBubbleProps) {
   const isUser = role === "user";
@@ -29,7 +30,6 @@ export default function MessageBubble({
   const sanitizeContent = (raw: string) => {
     if (!raw) return "";
     let cleaned = raw;
-    // Strip leading speaker tags if any leaked
     if (!isUser) {
       cleaned = cleaned.replace(/^(?:saki|assistant|ai)\s*[-:：]\s*/i, "");
     }
@@ -37,7 +37,6 @@ export default function MessageBubble({
   };
 
   const renderInlineFormatted = (rawText: string) => {
-    // Split by inline code `...`
     const codeParts = rawText.split(/(`[^`\n]+`)/g);
 
     return codeParts.map((part, pIdx) => {
@@ -46,9 +45,9 @@ export default function MessageBubble({
           <code 
             key={`code-${pIdx}`} 
             className={`px-1.5 py-0.5 rounded font-mono text-xs mx-0.5 border ${
-              isNight 
-                ? "bg-slate-800 text-indigo-300 border-slate-700" 
-                : "bg-indigo-50 text-indigo-700 border-indigo-100"
+              isNight
+                ? "bg-slate-900/90 text-cyan-300 border-cyan-500/30"
+                : "bg-sky-100/90 text-sky-900 border-sky-300 font-semibold"
             }`}
           >
             {part.slice(1, -1)}
@@ -56,14 +55,17 @@ export default function MessageBubble({
         );
       }
 
-      // Handle bold **text**
       const boldParts = part.split(/(\*\*.*?\*\*)/g);
       return boldParts.map((bPart, bIdx) => {
         if (bPart.startsWith("**") && bPart.endsWith("**")) {
           return (
             <strong 
               key={`bold-${pIdx}-${bIdx}`} 
-              className={`font-black ${isUser ? "text-white" : isNight ? "text-white" : "text-slate-950"}`}
+              className={`font-extrabold ${
+                isNight
+                  ? isUser ? "text-white" : "text-cyan-100"
+                  : isUser ? "text-sky-950" : "text-slate-950"
+              }`}
             >
               {bPart.slice(2, -2)}
             </strong>
@@ -81,12 +83,14 @@ export default function MessageBubble({
 
     if (isBulletList && lines.some((l) => l.trim().length > 0)) {
       return (
-        <ul key={keyPrefix} className="space-y-1.5 my-2.5 pl-1">
+        <ul key={keyPrefix} className="space-y-1.5 my-2 pl-1">
           {lines.filter((l) => l.trim().length > 0).map((line, lIdx) => {
             const content = line.trim().replace(/^[-*]\s+/, "");
             return (
               <li key={`${keyPrefix}-${lIdx}`} className="flex items-start gap-2">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2 flex-shrink-0"></span>
+                <span className={`inline-block w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${
+                  isNight ? "bg-cyan-400 shadow-[0_0_6px_#38bdf8]" : "bg-sky-600 shadow-[0_0_4px_#0284c7]"
+                }`} />
                 <span className="flex-1 leading-relaxed">{renderInlineFormatted(content)}</span>
               </li>
             );
@@ -97,15 +101,17 @@ export default function MessageBubble({
 
     if (isNumberedList && lines.some((l) => l.trim().length > 0)) {
       return (
-        <ol key={keyPrefix} className="space-y-1.5 my-2.5 pl-1">
+        <ol key={keyPrefix} className="space-y-1.5 my-2 pl-1">
           {lines.filter((l) => l.trim().length > 0).map((line, lIdx) => {
             const match = line.trim().match(/^(\d+)\.\s+(.*)$/);
             const num = match ? match[1] : `${lIdx + 1}`;
             const content = match ? match[2] : line.trim();
             return (
               <li key={`${keyPrefix}-${lIdx}`} className="flex items-start gap-2">
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 flex-shrink-0 ${
-                  isNight ? "bg-indigo-950/80 text-indigo-300 border border-indigo-800" : "bg-indigo-100 text-indigo-700"
+                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md mt-0.5 flex-shrink-0 border ${
+                  isNight
+                    ? "bg-cyan-950/70 text-cyan-300 border-cyan-500/40"
+                    : "bg-sky-100 text-sky-800 border-sky-300"
                 }`}>
                   {num}
                 </span>
@@ -118,57 +124,55 @@ export default function MessageBubble({
     }
 
     return (
-      <div key={keyPrefix} className="mb-2.5 last:mb-0 leading-relaxed">
-        {lines.map((l, lIdx) => (
-          <div key={`${keyPrefix}-line-${lIdx}`}>
-            {renderInlineFormatted(l)}
-          </div>
-        ))}
-      </div>
+      <p key={keyPrefix} className="my-1.5 leading-relaxed">
+        {renderInlineFormatted(block)}
+      </p>
     );
   };
 
-  const renderContent = (content: string) => {
-    if (!content) return null;
-    const sanitized = sanitizeContent(content);
+  const renderContent = (rawText: string) => {
+    const cleaned = sanitizeContent(rawText);
+    const codeBlockRegex = /```([a-zA-Z]*)\n([\s\S]*?)```/g;
+    const parts: Array<{ type: "text" | "code"; content: string; lang?: string }> = [];
+    let lastIndex = 0;
+    let match;
 
-    // Split text by code blocks ```...```
-    const parts = sanitized.split(/(```[\s\S]*?```)/g);
+    while ((match = codeBlockRegex.exec(cleaned)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ type: "text", content: cleaned.slice(lastIndex, match.index) });
+      }
+      parts.push({ type: "code", lang: match[1] || "code", content: match[2].trim() });
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < cleaned.length) {
+      parts.push({ type: "text", content: cleaned.slice(lastIndex) });
+    }
 
     return parts.map((part, index) => {
-      if (part.startsWith("```") && part.endsWith("```")) {
-        const rawCode = part.slice(3, -3).trim();
-        const lines = rawCode.split("\n");
-        const firstLine = lines[0].trim();
-        const hasLang = /^[a-zA-Z0-9_#+-]+$/.test(firstLine);
-        const lang = hasLang ? firstLine : "";
-        const code = hasLang ? lines.slice(1).join("\n") : rawCode;
-
+      if (part.type === "code") {
+        const lang = part.lang || "code";
+        const code = part.content;
         return (
-          <div 
-            key={`code-block-${index}`} 
-            className="my-3 rounded-2xl overflow-hidden border border-slate-800 bg-[#0f172a] shadow-lg text-slate-100 font-mono text-xs"
-          >
-            <div className="flex justify-between items-center px-4 py-2 bg-slate-900/90 border-b border-slate-800 select-none">
-              <span className="text-[10px] uppercase font-bold text-indigo-400">
-                {lang || "Code"}
-              </span>
+          <div key={`code-block-${index}`} className="my-3 rounded-xl overflow-hidden border border-slate-800 bg-slate-950/95 shadow-lg">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-xs">
+              <span className="font-mono text-[10px] text-cyan-400 font-bold uppercase tracking-wider">{lang}</span>
               <button
+                suppressHydrationWarning
                 onClick={() => handleCopy(code, index)}
-                className="text-[10px] font-semibold text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 transition cursor-pointer"
+                className="text-[10px] font-mono text-slate-400 hover:text-cyan-300 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 transition cursor-pointer"
               >
-                {copiedIndex === index ? "✓ Copied!" : "Copy code"}
+                {copiedIndex === index ? "✓ COPIED" : "COPY"}
               </button>
             </div>
-            <pre className="p-4 overflow-x-auto leading-relaxed">
+            <pre className="p-3.5 overflow-x-auto leading-relaxed text-[11px] text-cyan-100 font-mono">
               <code>{code}</code>
             </pre>
           </div>
         );
       }
 
-      // Process normal text paragraphs
-      const paragraphs = part.split(/\n\s*\n+/);
+      const paragraphs = part.content.split(/\n\s*\n+/);
       return (
         <div key={`part-${index}`}>
           {paragraphs.map((p, pIdx) => renderParagraphOrBlock(p, `p-${index}-${pIdx}`))}
@@ -181,26 +185,28 @@ export default function MessageBubble({
     if (!attachments || attachments.length === 0) return null;
 
     return (
-      <div className="flex flex-col gap-1.5 mt-2.5 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
-        <span className="text-[10px] font-bold opacity-60 uppercase tracking-wide">Attached Files</span>
+      <div className={`flex flex-col gap-1.5 mt-2.5 pt-2 border-t ${isNight ? "border-cyan-500/15" : "border-sky-300/40"}`}>
+        <span className="hud-label text-[9px] font-bold opacity-80">Attached Artifacts</span>
         <div className="flex flex-wrap gap-2">
           {attachments.map((att, i) => (
             <div 
               key={i} 
-              className={`flex items-center gap-2 border text-xs px-3 py-1.5 rounded-xl font-medium shadow-2xs transition-all ${
-                isUser 
-                  ? "bg-indigo-700/90 border-indigo-500 text-white" 
-                  : isNight 
-                    ? "bg-slate-800/90 border-slate-700 text-slate-200" 
-                    : "bg-white/90 border-slate-200 text-slate-700"
+              className={`flex items-center gap-2 border text-xs px-2.5 py-1 rounded-lg font-mono shadow-sm ${
+                isNight
+                  ? "border-cyan-500/25 bg-slate-900/80 text-cyan-200"
+                  : "border-sky-300 bg-white/90 text-sky-900"
               }`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-              </svg>
-              <span className="font-bold bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[9px] px-1.5 py-0.5 rounded-full">{att.type || "FILE"}</span>
-              <span className="truncate max-w-[140px] font-semibold">{att.name}</span>
-              {att.size && <span className="text-[10px] opacity-70">({att.size})</span>}
+              <span className="text-[10px]">📎</span>
+              <span className={`text-[9px] font-bold px-1 rounded border ${
+                isNight
+                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/30"
+                  : "bg-sky-100 text-sky-800 border-sky-300"
+              }`}>
+                {att.type || "FILE"}
+              </span>
+              <span className="truncate max-w-[140px] text-[11px] font-medium">{att.name}</span>
+              {att.size && <span className="text-[9px] opacity-70">({att.size})</span>}
             </div>
           ))}
         </div>
@@ -209,43 +215,56 @@ export default function MessageBubble({
   };
 
   return (
-    <div
-      className={`flex w-full mb-3.5 animate-slide-up ${
-        isUser ? "justify-end" : "justify-start"
-      }`}
-    >
-      {!isUser && (
-        <div className="flex-shrink-0 mr-2.5 mt-0.5">
-          <div className="h-8 w-8 rounded-full overflow-hidden border-2 border-indigo-400/50 bg-white flex items-center justify-center shadow-xs">
-            <img src="/saki.webp" alt="Saki DP" className="h-full w-full object-cover scale-105" />
-          </div>
-        </div>
-      )}
-      
+    <div className={`flex w-full mb-3 animate-slide-up ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`relative px-4 py-3 max-w-[88%] md:max-w-[78%] text-sm leading-relaxed ${
+        className={`relative px-4 py-3 max-w-[90%] md:max-w-[80%] text-xs leading-relaxed hud-corner-bracket transition-all duration-300 ${
           isUser
-            ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-3xl rounded-br-xs shadow-md border border-indigo-500/30"
+            ? isNight
+              ? "bg-slate-900/80 text-slate-100 rounded-2xl rounded-tr-xs border border-indigo-500/35 shadow-[0_4px_24px_rgba(99,102,241,0.15)] backdrop-blur-md"
+              : "bg-sky-100/90 text-sky-950 rounded-2xl rounded-tr-xs border border-sky-300/80 shadow-[0_4px_20px_rgba(14,165,233,0.15)] backdrop-blur-md"
             : isNight
-              ? "bg-[#1c2541]/90 text-slate-100 rounded-3xl rounded-bl-xs shadow-md border border-slate-700/80 backdrop-blur-md"
-              : "bg-white/90 text-slate-800 rounded-3xl rounded-bl-xs shadow-xs border border-slate-200/80 backdrop-blur-md"
+            ? "bg-slate-950/70 text-slate-100 rounded-2xl rounded-tl-xs border border-cyan-500/25 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-md"
+            : "bg-white/90 text-slate-900 rounded-2xl rounded-tl-xs border border-sky-200/90 shadow-[0_8px_32px_rgba(14,165,233,0.12)] backdrop-blur-md"
         }`}
       >
-        <div className={isUser ? "text-white" : isNight ? "text-slate-100" : "text-slate-800"}>
+        {/* Role & Telemetry Header */}
+        <div className={`flex items-center justify-between pb-1.5 mb-1.5 border-b ${isNight ? "border-cyan-500/10" : "border-sky-200/50"}`}>
+          <div className="flex items-center gap-1.5">
+            <span className={`hud-label font-bold text-[9px] ${
+              isUser
+                ? isNight ? "text-indigo-400" : "text-indigo-700"
+                : isNight ? "text-cyan-400" : "text-sky-700"
+            }`}>
+              {isUser ? "OPERATOR // USER" : "SAKI // CORE_AI"}
+            </span>
+            {!isUser && (
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${isNight ? "bg-cyan-400 shadow-[0_0_6px_#38bdf8]" : "bg-sky-500 shadow-[0_0_6px_#0284c7]"}`} />
+            )}
+          </div>
+          <span className={`text-[8px] font-mono ${isNight ? "text-slate-500" : "text-slate-400"}`}>
+            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        </div>
+
+        {/* Message Content with High Contrast */}
+        <div className={isNight ? "text-slate-200" : "text-slate-800 font-normal"}>
           {renderContent(text)}
         </div>
+
         {renderAttachments()}
 
         {!isUser && onRetry && (
-          <div className="mt-2 pt-1.5 border-t border-slate-200/40 dark:border-slate-700/40 flex justify-end">
+          <div className={`mt-2 pt-1.5 border-t flex justify-end ${isNight ? "border-cyan-500/10" : "border-sky-200/40"}`}>
             <button
               onClick={onRetry}
-              className="text-[10px] font-semibold text-slate-400 hover:text-indigo-500 flex items-center gap-1 transition cursor-pointer"
+              className={`text-[10px] font-mono font-semibold flex items-center gap-1 transition cursor-pointer ${
+                isNight ? "text-slate-400 hover:text-cyan-300" : "text-slate-500 hover:text-sky-700"
+              }`}
               title="Regenerate response"
               suppressHydrationWarning
             >
               <span>↻</span>
-              <span>Retry</span>
+              <span>RETRY TURN</span>
             </button>
           </div>
         )}

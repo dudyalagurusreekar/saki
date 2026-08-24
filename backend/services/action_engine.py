@@ -408,16 +408,42 @@ def parse_query_understanding(query: str) -> QueryUnderstanding:
         normalized_query=re.sub(r"[^\w\s\.\-]", " ", q_lower).strip()
     )
     
-    # 1. Location Detection
+    # 1. Location & Entity Detection
+    # Separate specific localities from broad states/regions
+    broad_regions = {"andhra pradesh", "andhra", "telangana", "karnataka", "india"}
+    specific_locs = {k: v for k, v in KNOWN_LOCATIONS.items() if k not in broad_regions}
+    broad_locs = {k: v for k, v in KNOWN_LOCATIONS.items() if k in broad_regions}
+
     found_loc = None
-    for loc_key, loc_val in sorted(KNOWN_LOCATIONS.items(), key=lambda x: -len(x[0])):
+    # Check specific localities first
+    for loc_key, loc_val in sorted(specific_locs.items(), key=lambda x: -len(x[0])):
         if re.search(r"\b" + re.escape(loc_key) + r"\b", q_lower):
             found_loc = loc_val
             break
-            
+
+    # If no specific locality, check broad regions
+    if not found_loc:
+        for loc_key, loc_val in sorted(broad_locs.items(), key=lambda x: -len(x[0])):
+            if re.search(r"\b" + re.escape(loc_key) + r"\b", q_lower):
+                found_loc = loc_val
+                break
+
     if found_loc:
         qu.location = found_loc
         qu.primary_entity = found_loc
+        qu.entity_type = "location"
+
+    # Specific Landmark / Temple / Monument Entity Extraction
+    landmark_match = re.search(r"\b([A-Za-z0-9]+(?:\s+[A-Za-z0-9]+)?)\s+(temple|mandir|fort|barrage|caves?|dam|falls|museum|palace)\b", q_clean, re.IGNORECASE)
+    if landmark_match:
+        qu.primary_entity = landmark_match.group(0).strip()
+        qu.entity_type = "landmark"
+
+    # Specific Named Entity extraction (e.g. "city FooBarBaz", "town FooBar")
+    named_match = re.search(r"\b(?:city|town|village|place)\s+([A-Za-z0-9_]+)\b", q_clean, re.IGNORECASE)
+    if named_match:
+        qu.primary_entity = named_match.group(1).strip()
+        qu.location = named_match.group(1).strip()
         qu.entity_type = "location"
 
     # 2. Software / Tech Entity Detection

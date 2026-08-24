@@ -1,28 +1,30 @@
-"""
-Saki Response Evaluator Engine — Response Sanitizer & Quality Gate
-Evaluates draft model responses to enforce Saki's persona integrity,
-strip internal metadata leakage, remove robotic assistant cliches,
-prevent prompt repetition, and ensure clean, comfortable representation.
-"""
-
 import re
+from enum import Enum
 from typing import List, Optional, Any
 from pydantic import BaseModel, Field
-from backend.services.response_planner import ResponsePlan
+from backend.services.response_planner import ResponsePlan, AdaptiveLength
 from backend.services.grounding_verifier import GroundingVerifierEngine, AnswerGroundingAssessment
+
+
+class QualityStatus(str, Enum):
+    PASS = "PASS"
+    MINOR_ISSUE = "MINOR_ISSUE"
+    REGENERATE = "REGENERATE"
 
 
 class EvaluationResult(BaseModel):
     passed: bool = Field(default=True, description="Whether response passed quality standards")
+    status: QualityStatus = Field(default=QualityStatus.PASS, description="PASS, MINOR_ISSUE, or REGENERATE")
     score: float = Field(default=1.0, description="Persona and quality score 0.0 to 1.0")
     persona_issues: List[str] = Field(default_factory=list, description="Identified persona or tone flaws")
     repaired_text: str = Field(description="Cleaned, polished response ready for delivery")
     needs_regeneration: bool = Field(default=False, description="Whether response was so degraded it requires regen")
-    grounding_assessment: Optional[AnswerGroundingAssessment] = Field(default=None, description="Sprint 7 claim-level grounding verification")
+    grounding_assessment: Optional[AnswerGroundingAssessment] = Field(default=None, description="Claim-level grounding verification")
 
 
 # Internal leak patterns that should never reach the user
 INTERNAL_LEAK_PATTERNS = [
+    r"\[(?:Instruction|System|Developer|System Prompt|Developer Message)[^\]]*\]\n?",
     r"\[(?:Instruction|System|Developer|System Prompt|Developer Message)\][\s\S]*?(?=\n\n|\Z)",
     r"<\/?(?:think|thought|internal)>[\s\S]*?<\/(?:think|thought|internal)>",
     r"<\/?(?:think|thought|internal)>",
@@ -88,7 +90,6 @@ def format_comfortable_layout(text: str) -> str:
     
     # Ensure code blocks have nice spacing
     cleaned = re.sub(r"([^\n])(```[a-zA-Z0-9_#+-]*)", r"\1\n\n\2", cleaned)
-    cleaned = re.sub(r"(```)\n*([^\n`])", r"\1\n\2", cleaned)
     
     return cleaned
 
@@ -109,6 +110,7 @@ def evaluate_response(
     if not draft_text or len(draft_text.strip()) == 0:
         return EvaluationResult(
             passed=False,
+            status=QualityStatus.REGENERATE,
             score=0.0,
             persona_issues=["empty_response"],
             repaired_text="Hmm, my thoughts drifted for a second. What were we looking at? 🌸",
@@ -138,12 +140,57 @@ def evaluate_response(
         issues.append("too_verbose_for_casual_mode")
         penalty += 0.10
 
-    # Step 5: Check if text became empty after removing leaks/cliches
+    # Step 5: Support Mode Quality & Validate-Before-Solve Enforcement
+    if mode == "support" or (plan and getattr(plan, "validate_before_solve", False)):
+        # Check for excessive bullet advice dumps in emotional mode
+        bullet_count = len(re.findall(r"(?:^|\n)\s*(?:[-*•]|\d+[.)])\s+", cleaned))
+        if bullet_count >= 4:
+            issues.append("excessive_advice_bullets_in_support_mode")
+            penalty += 0.20
+            # Simplify bullet list into natural prose paragraphs
+            cleaned = re.sub(r"(?:^|\n)\s*(?:[-*•]|\d+[.)])\s+", " ", cleaned)
+            cleaned = format_comfortable_layout(cleaned)
+
+        # Check for artificial human claims
+        artificial_human_patterns = [
+            (r"\bi (?:also )?cried when\b[^.!?]*[.!?]?", ""),
+            (r"\bwhen i was human\b[^.!?]*[.!?]?", ""),
+            (r"\bi have human feelings\b[^.!?]*[.!?]?", "")
+        ]
+        for pat, rep in artificial_human_patterns:
+            if re.search(pat, cleaned, flags=re.IGNORECASE):
+                issues.append("artificial_human_claim")
+                penalty += 0.20
+                cleaned = re.sub(pat, rep, cleaned, flags=re.IGNORECASE).strip()
+
+    # Step 6: Multilingual Quality & Unicode Integrity Check (Sprint 6)
+    target_lang = getattr(plan, "language", None) or "en"
+    if "\ufffd" in cleaned:
+        issues.append("unicode_replacement_character_detected")
+        penalty += 0.25
+        cleaned = cleaned.replace("\ufffd", "")
+
+    # Check for unwanted language mismatch on non-code responses
+    has_code = "```" in cleaned
+    if not has_code and len(cleaned) > 20:
+        if target_lang == "te" and not re.search(r'[\u0C00-\u0C7F]', cleaned):
+            issues.append("telugu_language_mismatch")
+            penalty += 0.20
+        elif target_lang == "kn" and not re.search(r'[\u0C80-\u0CFF]', cleaned):
+            issues.append("kannada_language_mismatch")
+            penalty += 0.20
+
+    # Step 7: Check if text became empty after removing leaks/cliches
     if len(cleaned) < 5:
         issues.append("response_became_empty_after_cleanse")
-        cleaned = "Got it! Let's jump right into it. 🚀"
+        if target_lang == "te":
+            cleaned = "నేను వింటున్నాను. మనం కలిసి పరిష్కరిద్దాం! 🌸" if mode == "support" else "సరే! మనం ప్రారంభిద్దాం. 🚀"
+        elif target_lang == "kn":
+            cleaned = "ನಾನು ಕೇಳುತ್ತಿದ್ದೇನೆ. ನಾವಿಬ್ಬರೂ ಇದನ್ನು ಪರಿಹರಿಸೋಣ! 🌸" if mode == "support" else "ಸರಿ! ನಾವು ಪ್ರಾರಂಭಿಸೋಣ. 🚀"
+        else:
+            cleaned = "I hear you. Take a breath—I'm right here with you. 🌸" if mode == "support" else "Got it! Let's jump right into it. 🚀"
 
-    # Step 6: Sprint 7 Claim-Level Grounding Verification
+    # Step 8: Claim-Level Grounding Verification
     grounding_assessment = None
     if evidence_items or evidence_package or (action_decision and getattr(action_decision, "requires_world_access", False)):
         grounding_assessment = GroundingVerifierEngine.evaluate_answer_grounding(
@@ -153,17 +200,23 @@ def evaluate_response(
             action_decision=action_decision,
             user_query=user_query
         )
-        if grounding_assessment.repaired_answer and grounding_assessment.repaired_answer != cleaned:
-            cleaned = grounding_assessment.repaired_answer
-
     score = max(0.0, round(1.0 - penalty, 2))
+    needs_regen = (score < 0.30) or ("empty_response" in issues)
     passed = score >= 0.50
+
+    if needs_regen:
+        status = QualityStatus.REGENERATE
+    elif len(issues) > 0:
+        status = QualityStatus.MINOR_ISSUE
+    else:
+        status = QualityStatus.PASS
 
     return EvaluationResult(
         passed=passed,
+        status=status,
         score=score,
         persona_issues=issues,
         repaired_text=cleaned,
-        needs_regeneration=(score < 0.30),
+        needs_regeneration=needs_regen,
         grounding_assessment=grounding_assessment
     )

@@ -104,7 +104,7 @@ def test_verified_world_knowledge_promotion():
 def test_memory_context_selector_filters_secrets():
     memories = [
         {"content": "User is building Saki AI project", "type": "PROJECT"},
-        {"content": "User API Key is AIzaSyBJej43jDBLEVqbjp4GH6UfSRktBl6hrnc", "type": "SECRET"} # Secret memory
+        {"content": "User API Key is AIzaSy_FAKE_API_KEY_DO_NOT_USE_01234567", "type": "SECRET"} # Secret memory
     ]
     context = MemoryContextSelector.select_safe_context(memories, "What is my project?")
     

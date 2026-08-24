@@ -28,7 +28,7 @@ def test_repository_scanner_discovers_structure():
 # SECRET REDACTION TESTS
 # -------------------------
 def test_secret_redactor_masks_credentials():
-    code_snippet = 'API_KEY = "AIzaSyBJej43jDBLEVqbjp4GH6UfSRktBl6hrnc"'
+    code_snippet = 'API_KEY = "AIzaSy_FAKE_API_KEY_DO_NOT_USE_01234567"'
     redacted = SecretRedactor.redact_code(code_snippet)
     
     assert "AIzaSy" not in redacted

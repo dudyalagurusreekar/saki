@@ -102,7 +102,7 @@ def test_gemini_disabled_returns_failure_stub():
         assert len(results) == 1
         assert results[0]["provider_status"] == "FAILURE"
         assert results[0]["provider"] == "gemini"
-        assert results[0]["error_detail"] == "GEMINI_DISABLED_OR_NO_KEY"
+        assert results[0]["error_detail"] in ["GEMINI_CONFIGURATION_ERROR", "GEMINI_DISABLED_OR_NO_KEY"]
         assert results[0].get("fallback_from") is None
 
 

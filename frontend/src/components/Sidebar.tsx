@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { 
   GroupedConversations, 
   ConversationSummary, 
-  searchConversations,
+  searchConversations, 
   deleteConversation 
 } from "../lib/api";
+import { SakiTheme } from "../lib/theme";
 
 interface SearchResultItem {
   id: string;
@@ -23,7 +24,12 @@ interface SidebarProps {
   onOpenMemory: () => void;
   onOpenSettings: () => void;
   onOpenProjects: () => void;
-  theme?: "clear_sky" | "night_sky";
+  onToggleVoice?: () => void;
+  isVoiceActive?: boolean;
+  activeProject?: string;
+  theme?: SakiTheme;
+  activeView?: "chat" | "core";
+  onSelectView?: (v: "chat" | "core") => void;
 }
 
 export default function Sidebar({
@@ -36,12 +42,18 @@ export default function Sidebar({
   onOpenMemory,
   onOpenSettings,
   onOpenProjects,
-  theme = "clear_sky"
+  onToggleVoice,
+  isVoiceActive = false,
+  activeProject,
+  theme = "night_sky",
+  activeView = "chat",
+  onSelectView,
 }: SidebarProps) {
+  const isNight = theme === "night_sky";
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const isNight = theme === "night_sky";
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Debounced search
   useEffect(() => {
@@ -59,14 +71,14 @@ export default function Sidebar({
       const res = await searchConversations(trimmed);
       setSearchResults(res.results || []);
       setIsSearching(false);
-    }, 250);
+    }, 200);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (confirm("Delete this conversation?")) {
+    if (confirm("Delete this conversation record?")) {
       const ok = await deleteConversation(id);
       if (ok && id === activeConversationId) {
         onNewChat();
@@ -81,30 +93,35 @@ export default function Sidebar({
         key={c.id}
         onClick={() => {
           onSelectConversation(c.id);
-          if (typeof window !== "undefined" && window.innerWidth < 768) onClose();
+          if (typeof window !== "undefined" && window.innerWidth < 1024) onClose();
         }}
-        className={`group flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition ${
+        className={`group relative flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-200 ${
           isActive
             ? isNight
-              ? "bg-indigo-600/30 text-indigo-300 border border-indigo-500/40"
-              : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+              ? "bg-cyan-950/50 text-cyan-200 border border-cyan-500/40 shadow-[0_0_15px_rgba(56,189,248,0.15)]"
+              : "bg-sky-100/90 text-sky-950 border border-sky-400/60 shadow-[0_0_12px_rgba(14,165,233,0.2)] font-bold"
             : isNight
-              ? "text-slate-300 hover:bg-slate-800/80 hover:text-white"
-              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            ? "text-slate-300 hover:bg-slate-800/60 hover:text-white border border-transparent hover:border-slate-700/50"
+            : "text-slate-700 hover:bg-white/80 hover:text-slate-900 border border-transparent hover:border-sky-200"
         }`}
       >
-        <div className="flex items-center gap-2 truncate flex-1 mr-1">
-          <span className="opacity-60 text-[11px]">💬</span>
+        {/* Active indicator bar */}
+        {isActive && (
+          <div className={`absolute left-0 inset-y-1.5 w-1 rounded-r ${isNight ? "bg-cyan-400 shadow-[0_0_8px_#38bdf8]" : "bg-sky-500 shadow-[0_0_8px_#0284c7]"}`} />
+        )}
+
+        <div className="flex items-center gap-2 truncate flex-1 min-w-0 pl-1">
+          <span className={`text-[11px] ${isNight ? "text-cyan-400 opacity-70" : "text-sky-600 font-bold"}`}>◇</span>
           <span className="truncate">{c.title || "Conversation"}</span>
         </div>
 
         <button
           suppressHydrationWarning
           onClick={(e) => handleDelete(e, c.id)}
-          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 p-1 rounded transition text-[10px]"
-          title="Delete chat"
+          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 p-1 rounded transition text-[11px] flex-shrink-0"
+          title="Delete conversation"
         >
-          🗑️
+          ✕
         </button>
       </div>
     );
@@ -112,10 +129,10 @@ export default function Sidebar({
 
   return (
     <>
-      {/* Mobile backdrop */}
+      {/* Mobile backdrop overlay */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/30 backdrop-blur-xs z-30 md:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden animate-fade-in"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -123,168 +140,338 @@ export default function Sidebar({
 
       <aside
         suppressHydrationWarning
-        className={`fixed md:static inset-y-0 left-0 w-[270px] flex-shrink-0 flex flex-col h-full z-40 transition-transform duration-300 ease-in-out border-r ${
-          isOpen ? "translate-x-0" : "-translate-x-full md:hidden"
+        className={`fixed lg:static inset-y-0 left-0 flex-shrink-0 flex flex-col h-full z-40 transition-all duration-300 ease-in-out border-r hud-panel select-none ${
+          isNight ? "text-slate-200 border-cyan-500/15" : "text-slate-800 border-sky-300/40"
         } ${
-          isNight 
-            ? "bg-[#111827]/90 border-slate-800 text-slate-200 backdrop-blur-xl" 
-            : "bg-white/85 border-slate-200/80 text-slate-800 backdrop-blur-xl shadow-lg md:shadow-none"
-        }`}
+          isOpen ? "translate-x-0" : "-translate-x-full lg:hidden"
+        } ${isCollapsed ? "w-[72px]" : "w-[280px]"}`}
       >
-        {/* Sidebar Header & New Chat */}
-        <div className="p-3.5 border-b border-slate-200/60 dark:border-slate-800/80 flex flex-col gap-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-full overflow-hidden border border-indigo-400/40">
-                <img src="/saki.webp" alt="Saki" className="h-full w-full object-cover" />
+        {/* Top Header: Sci-Fi Workstation Insignia */}
+        <div className={`p-3.5 border-b flex items-center justify-between ${isNight ? "border-cyan-500/15" : "border-sky-200/60"}`}>
+          {!isCollapsed ? (
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className={`relative h-8 w-8 rounded-lg overflow-hidden border flex-shrink-0 ${
+                isNight ? "border-cyan-400/40 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "border-sky-400 shadow-sm"
+              }`}>
+                <img src="/saki.webp" alt="Saki Core" className="h-full w-full object-cover" />
+                <div className={`absolute inset-0 pointer-events-none ${isNight ? "bg-cyan-500/10" : "bg-sky-500/5"}`} />
               </div>
-              <span className="font-extrabold text-xs tracking-wider uppercase opacity-70">Saki Navigation</span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="hud-label font-bold text-[10px]">SAKI // OS</span>
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${isNight ? "bg-cyan-400 animate-pulse shadow-[0_0_6px_#38bdf8]" : "bg-sky-500 shadow-[0_0_6px_#0284c7]"}`} />
+                </div>
+                <div className={`text-[11px] font-extrabold tracking-wide truncate ${isNight ? "text-slate-100" : "text-slate-900"}`}>
+                  WORKSTATION
+                </div>
+              </div>
             </div>
+          ) : (
+            <div className={`mx-auto h-8 w-8 rounded-lg overflow-hidden border ${isNight ? "border-cyan-400/40 shadow-[0_0_10px_rgba(56,189,248,0.3)]" : "border-sky-400"}`}>
+              <img src="/saki.webp" alt="Saki" className="h-full w-full object-cover" />
+            </div>
+          )}
 
+          <div className="flex items-center gap-1">
+            {/* Desktop Collapse Toggle */}
+            <button
+              suppressHydrationWarning
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className={`hidden lg:flex p-1.5 rounded-lg transition text-xs ${
+                isNight ? "text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60" : "text-slate-500 hover:text-sky-800 hover:bg-white/70"
+              }`}
+              title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+              {isCollapsed ? "»" : "«"}
+            </button>
+
+            {/* Mobile Close Button */}
             <button
               suppressHydrationWarning
               onClick={onClose}
-              className="md:hidden text-slate-400 hover:text-slate-700 p-1 rounded-md"
+              className={`lg:hidden p-1 rounded-md ${isNight ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900"}`}
             >
               ✕
             </button>
           </div>
+        </div>
 
+        {/* Primary Action Button: New Chat */}
+        <div className={`p-3 border-b ${isNight ? "border-cyan-500/10" : "border-sky-200/50"}`}>
           <button
             suppressHydrationWarning
             onClick={() => {
               onNewChat();
-              if (typeof window !== "undefined" && window.innerWidth < 768) onClose();
+              if (typeof window !== "undefined" && window.innerWidth < 1024) onClose();
             }}
-            className="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 transform active:scale-98"
+            className={`w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 transform active:scale-98 ${
+              isCollapsed ? "px-0" : ""
+            }`}
+            title="New Conversation (Ctrl+K)"
           >
             <span className="text-base font-light leading-none">+</span>
-            <span>New Chat</span>
+            {!isCollapsed && (
+              <>
+                <span className="tracking-wide">New Session</span>
+                <span className="text-[9px] font-mono opacity-80 bg-black/25 px-1.5 py-0.5 rounded border border-white/20 ml-auto">
+                  ⌘K
+                </span>
+              </>
+            )}
           </button>
 
-          {/* Search Box */}
-          <div className="relative">
-            <input
-              suppressHydrationWarning
-              type="text"
-              placeholder="Search conversations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full py-1.5 pl-7 pr-3 rounded-lg text-xs border focus:outline-none transition ${
-                isNight 
-                  ? "bg-slate-800/80 border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500" 
-                  : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-indigo-500"
-              }`}
-            />
-            <span className="absolute left-2.5 top-2 text-[10px] opacity-40">🔍</span>
-            {searchQuery && (
-              <button 
-                suppressHydrationWarning
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-1.5 text-[10px] text-slate-400 hover:text-slate-600"
+          {/* Primary View Switcher Navigation */}
+          {onSelectView && (
+            <div className="grid grid-cols-2 gap-1 mt-2 pt-2 border-t border-cyan-500/10">
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectView("chat");
+                  if (typeof window !== "undefined" && window.innerWidth < 1024) onClose();
+                }}
+                className={`py-1.5 px-2 rounded-lg font-mono text-[11px] font-bold transition flex items-center justify-center gap-1.5 border ${
+                  activeView === "chat"
+                    ? isNight
+                      ? "bg-cyan-950/70 text-cyan-300 border-cyan-500/40 shadow-[0_0_8px_rgba(56,189,248,0.2)]"
+                      : "bg-sky-500 text-white border-sky-600 shadow-xs"
+                    : isNight
+                      ? "border-transparent text-slate-400 hover:text-white hover:bg-slate-800/60"
+                      : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/80"
+                }`}
+                title="Chat Workspace (ChatGPT Style)"
               >
-                ✕
+                <span>💬</span>
+                {!isCollapsed && <span>Chat</span>}
               </button>
-            )}
-          </div>
-        </div>
-
-        {/* Conversation List / Search Results */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-3">
-          {searchQuery ? (
-            <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                {isSearching ? "Searching..." : `Results (${searchResults.length})`}
-              </div>
-              {searchResults.length > 0 ? (
-                searchResults.map((r) => (
-                  <div
-                    key={r.id}
-                    onClick={() => {
-                      onSelectConversation(r.id);
-                      setSearchQuery("");
-                      if (typeof window !== "undefined" && window.innerWidth < 768) onClose();
-                    }}
-                    className={`p-2 rounded-xl text-xs cursor-pointer border transition ${
-                      isNight ? "bg-slate-800/70 border-slate-700 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-800"
-                    }`}
-                  >
-                    <div className="font-bold truncate">{r.title}</div>
-                    <div className="text-[10px] opacity-60 truncate mt-0.5">{r.snippet}</div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-xs text-slate-400 italic text-center py-4">No matching chats found.</div>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectView("core");
+                  if (typeof window !== "undefined" && window.innerWidth < 1024) onClose();
+                }}
+                className={`py-1.5 px-2 rounded-lg font-mono text-[11px] font-bold transition flex items-center justify-center gap-1.5 border ${
+                  activeView === "core"
+                    ? isNight
+                      ? "bg-cyan-950/70 text-cyan-300 border-cyan-500/40 shadow-[0_0_8px_rgba(56,189,248,0.2)]"
+                      : "bg-sky-500 text-white border-sky-600 shadow-xs"
+                    : isNight
+                      ? "border-transparent text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60"
+                      : "border-transparent text-slate-600 hover:text-sky-800 hover:bg-white/80"
+                }`}
+                title="Dedicated Saki Core Interface (Pure Black)"
+              >
+                <span>⚛️</span>
+                {!isCollapsed && <span>Core</span>}
+              </button>
             </div>
-          ) : (
-            <>
-              {/* Today */}
-              {conversations?.today && conversations.today.length > 0 && (
-                <div className="space-y-1">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">Today</div>
-                  {conversations.today.map(renderConversationItem)}
-                </div>
-              )}
-
-              {/* Yesterday */}
-              {conversations?.yesterday && conversations.yesterday.length > 0 && (
-                <div className="space-y-1 pt-1">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">Yesterday</div>
-                  {conversations.yesterday.map(renderConversationItem)}
-                </div>
-              )}
-
-              {/* Older */}
-              {conversations?.older && conversations.older.length > 0 && (
-                <div className="space-y-1 pt-1">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">Previous 7 Days</div>
-                  {conversations.older.map(renderConversationItem)}
-                </div>
-              )}
-
-              {!conversations?.today?.length && !conversations?.yesterday?.length && !conversations?.older?.length && (
-                <div className="text-xs text-slate-400 text-center py-6 italic">No chats yet. Start chatting!</div>
-              )}
-            </>
           )}
         </div>
 
-        {/* Footer Navigation Links */}
-        <div className="p-3 border-t border-slate-200/60 dark:border-slate-800/80 space-y-1">
-          <button
-            suppressHydrationWarning
-            onClick={onOpenProjects}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition ${
-              isNight ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"
-            }`}
-          >
-            <span>📁</span>
-            <span>Projects &amp; Goals</span>
-          </button>
+        {/* Search Filter (when expanded) */}
+        {!isCollapsed && (
+          <div className="px-3 pt-2.5 pb-1">
+            <div className="relative">
+              <input
+                suppressHydrationWarning
+                type="text"
+                placeholder="Search telemetry & logs..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full py-1.5 pl-7 pr-7 rounded-lg text-xs border focus:outline-none transition font-mono ${
+                  isNight
+                    ? "bg-slate-900/80 border-cyan-500/20 text-white placeholder-slate-500 focus:border-cyan-400/60"
+                    : "bg-white/80 border-sky-300 text-slate-900 placeholder-slate-400 focus:border-sky-500"
+                }`}
+              />
+              <span className={`absolute left-2.5 top-2 text-[10px] ${isNight ? "text-cyan-400/60" : "text-sky-500"}`}>◇</span>
+              {searchQuery && (
+                <button 
+                  suppressHydrationWarning
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1.5 text-[10px] text-slate-400 hover:text-rose-500"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
-          <button
-            suppressHydrationWarning
-            onClick={onOpenMemory}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition ${
-              isNight ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"
-            }`}
-          >
-            <span>🧠</span>
-            <span>Durable Memory</span>
-          </button>
+        {/* Conversation List / Search Results */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          {!isCollapsed ? (
+            searchQuery ? (
+              <div className="space-y-1.5">
+                <div className="hud-label px-1 flex justify-between">
+                  <span>Search Results</span>
+                  <span>{isSearching ? "..." : searchResults.length}</span>
+                </div>
+                {searchResults.length > 0 ? (
+                  searchResults.map((r) => (
+                    <div
+                      key={r.id}
+                      onClick={() => {
+                        onSelectConversation(r.id);
+                        setSearchQuery("");
+                        if (typeof window !== "undefined" && window.innerWidth < 1024) onClose();
+                      }}
+                      className={`p-2 rounded-xl text-xs cursor-pointer border transition ${
+                        isNight
+                          ? "hover:bg-slate-800/80 border-transparent hover:border-cyan-500/30"
+                          : "hover:bg-white/90 border-transparent hover:border-sky-300"
+                      }`}
+                    >
+                      <div className={`font-semibold truncate ${isNight ? "text-cyan-200" : "text-sky-900"}`}>
+                        {r.title}
+                      </div>
+                      <div className={`text-[10px] truncate mt-0.5 ${isNight ? "text-slate-400" : "text-slate-600"}`}>
+                        {r.snippet}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-[11px] text-slate-400 text-center py-4 font-mono">
+                    No records found
+                  </div>
+                )}
+              </div>
+            ) : conversations ? (
+              <div className="space-y-3.5">
+                {/* Today */}
+                {conversations.today && conversations.today.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="hud-label px-1">Today</div>
+                    {conversations.today.map(renderConversationItem)}
+                  </div>
+                )}
 
-          <button
-            suppressHydrationWarning
-            onClick={onOpenSettings}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition ${
-              isNight ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"
-            }`}
-          >
-            <span>⚙️</span>
-            <span>Settings</span>
-          </button>
+                {/* Yesterday */}
+                {conversations.yesterday && conversations.yesterday.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="hud-label px-1">Yesterday</div>
+                    {conversations.yesterday.map(renderConversationItem)}
+                  </div>
+                )}
+
+                {/* Older */}
+                {conversations.older && conversations.older.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="hud-label px-1">Older Activity</div>
+                    {conversations.older.map(renderConversationItem)}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-slate-400 text-xs font-mono">
+                Loading history...
+              </div>
+            )
+          ) : (
+            /* Collapsed Quick Actions */
+            <div className="flex flex-col items-center gap-3">
+              <button
+                onClick={onOpenProjects}
+                className={`p-2.5 rounded-xl transition ${isNight ? "hover:bg-slate-800/80 text-cyan-400" : "hover:bg-sky-100 text-sky-700"}`}
+                title="Projects"
+              >
+                📁
+              </button>
+              <button
+                onClick={onOpenMemory}
+                className={`p-2.5 rounded-xl transition ${isNight ? "hover:bg-slate-800/80 text-purple-400" : "hover:bg-purple-100 text-purple-700"}`}
+                title="Memory Vault"
+              >
+                🧠
+              </button>
+              <button
+                onClick={onOpenSettings}
+                className={`p-2.5 rounded-xl transition ${isNight ? "hover:bg-slate-800/80 text-slate-400 hover:text-white" : "hover:bg-slate-200 text-slate-600"}`}
+                title="Settings"
+              >
+                ⚙️
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Footer Navigation & Capabilities Panel */}
+        {!isCollapsed && (
+          <div className={`p-3 border-t space-y-1 ${isNight ? "border-cyan-500/15 bg-slate-950/40" : "border-sky-200/60 bg-sky-50/60"}`}>
+            {/* Active Project Indicator */}
+            <button
+              suppressHydrationWarning
+              onClick={onOpenProjects}
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                isNight ? "hover:bg-slate-800/60 text-slate-300 hover:text-white" : "hover:bg-white/80 text-slate-700 hover:text-slate-950"
+              }`}
+            >
+              <div className="flex items-center gap-2 truncate">
+                <span className="text-cyan-500 text-xs">📁</span>
+                <span className="truncate font-mono">{activeProject || "Default Workspace"}</span>
+              </div>
+              <span className={`text-[9px] font-mono border px-1 rounded ${isNight ? "text-cyan-400/70 border-cyan-500/30" : "text-sky-700 border-sky-300"}`}>
+                PROJ
+              </span>
+            </button>
+
+            {/* Memory Vault Trigger */}
+            <button
+              suppressHydrationWarning
+              onClick={onOpenMemory}
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                isNight ? "hover:bg-slate-800/60 text-slate-300 hover:text-white" : "hover:bg-white/80 text-slate-700 hover:text-slate-950"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-purple-500 text-xs">🧠</span>
+                <span>Memory Vault</span>
+              </div>
+              <span className={`text-[9px] font-mono border px-1 rounded ${isNight ? "text-purple-400/70 border-purple-500/30" : "text-purple-700 border-purple-300"}`}>
+                DURABLE
+              </span>
+            </button>
+
+            {/* Voice Engine Toggle */}
+            {onToggleVoice && (
+              <button
+                suppressHydrationWarning
+                onClick={onToggleVoice}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  isVoiceActive
+                    ? "bg-rose-950/50 text-rose-300 border border-rose-500/40"
+                    : isNight
+                    ? "hover:bg-slate-800/60 text-slate-300 hover:text-white"
+                    : "hover:bg-white/80 text-slate-700 hover:text-slate-950"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs">{isVoiceActive ? "🎙️" : "🔈"}</span>
+                  <span>Voice Engine</span>
+                </div>
+                <span className={`text-[9px] font-mono px-1 rounded ${
+                  isVoiceActive ? "text-rose-400 font-bold animate-pulse" : "text-slate-400 border border-slate-400/40"
+                }`}>
+                  {isVoiceActive ? "LISTENING" : "STANDBY"}
+                </span>
+              </button>
+            )}
+
+            {/* Settings Trigger */}
+            <button
+              suppressHydrationWarning
+              onClick={onOpenSettings}
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                isNight ? "hover:bg-slate-800/60 text-slate-300 hover:text-white" : "hover:bg-white/80 text-slate-700 hover:text-slate-950"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-xs">⚙️</span>
+                <span>System Config</span>
+              </div>
+              <span className={`text-[9px] font-mono ${isNight ? "text-slate-500" : "text-slate-500"}`}>v2.0</span>
+            </button>
+          </div>
+        )}
       </aside>
     </>
   );

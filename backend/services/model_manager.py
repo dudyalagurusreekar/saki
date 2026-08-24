@@ -1,5 +1,6 @@
 """
 Saki Model Manager & Performance Telemetry Service
+Bridges model operations to the central ResourceManager (Sprint 20).
 Tracks real model state machine, manages Ollama keep_alive, records genuine execution
 telemetry without fabrication, and provides system resource information.
 """
@@ -8,16 +9,20 @@ import time
 import httpx
 from typing import Dict, Any, List, Optional
 from backend.core.config import settings
+from backend.services.resource_manager import (
+    resource_manager,
+    ResourceState,
+    ComponentType,
+    OLLAMA_BASE_URL
+)
 
-OLLAMA_BASE_URL = "http://localhost:11434"
-
-# Model state machine states
-STATE_OFF = "OFF"
-STATE_LOADING = "LOADING"
-STATE_ACTIVE = "ACTIVE"
-STATE_IDLE = "IDLE"
-STATE_UNLOADING = "UNLOADING"
-STATE_ERROR = "ERROR"
+# Model state machine states (backwards-compatible constants)
+STATE_OFF = ResourceState.OFF.value
+STATE_LOADING = ResourceState.LOADING.value
+STATE_ACTIVE = ResourceState.ACTIVE.value
+STATE_IDLE = ResourceState.IDLE.value
+STATE_UNLOADING = ResourceState.UNLOADING.value
+STATE_ERROR = ResourceState.ERROR.value
 
 ALL_MODELS = [
     settings.MODEL_PHI3,
@@ -31,10 +36,10 @@ ALL_MODELS = [
 class ModelManager:
     """
     Manages local LLM life cycle, state machine, and real runtime telemetry.
+    Delegates lifecycle and hardware queries to central ResourceManager.
     """
 
     def __init__(self):
-        self._model_states: Dict[str, str] = {model: STATE_OFF for model in ALL_MODELS}
         self._active_model: str = settings.MODEL_DEFAULT
         self._current_mode: str = "casual"
         self._last_telemetry: Dict[str, Any] = {
@@ -53,16 +58,20 @@ class ModelManager:
         }
 
     def set_model_state(self, model: str, state: str) -> None:
-        if model in self._model_states:
-            self._model_states[model] = state
+        try:
+            rstate = ResourceState(state)
+        except ValueError:
+            rstate = ResourceState.OFF
+        resource_manager.set_component_state(model, rstate)
         if state == STATE_ACTIVE:
             self._active_model = model
 
     def get_model_state(self, model: str) -> str:
-        return self._model_states.get(model, STATE_OFF)
+        return resource_manager.get_component_state(model).value
 
     def get_all_states(self) -> Dict[str, str]:
-        return dict(self._model_states)
+        matrix = resource_manager.get_resource_matrix()
+        return {k: v["state"] for k, v in matrix.get("components", {}).items() if k in ALL_MODELS}
 
     def get_active_model(self) -> str:
         return self._active_model
@@ -111,85 +120,49 @@ class ModelManager:
 
     def unload_model(self, model_name: str) -> bool:
         """
-        Explicitly triggers Ollama keep_alive=0 to release VRAM/RAM.
+        Explicitly triggers Ollama keep_alive=0 via ResourceManager to release VRAM/RAM.
         """
-        self.set_model_state(model_name, STATE_UNLOADING)
-        try:
-            res = httpx.post(
-                f"{OLLAMA_BASE_URL}/api/generate",
-                json={"model": model_name, "keep_alive": 0},
-                timeout=10.0
-            )
-            if res.status_code == 200:
-                self.set_model_state(model_name, STATE_OFF)
-                return True
-            self.set_model_state(model_name, STATE_ERROR)
-            return False
-        except Exception as e:
-            print(f"Error unloading model {model_name}: {e}")
-            self.set_model_state(model_name, STATE_ERROR)
-            return False
+        return resource_manager.unload_model(model_name)
 
     def probe_ollama_status(self) -> Dict[str, Any]:
         """
         Probes real Ollama service for running models and overall connectivity.
         """
+        hw = resource_manager.probe_hardware_and_ollama()
+        ollama_hw = hw.get("ollama", {})
+
+        available = []
         try:
-            # Check tags / available models
             tags_res = httpx.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=3.0)
-            if tags_res.status_code != 200:
-                return {"connected": False, "loaded_models": [], "available_models": []}
-            
-            tags_data = tags_res.json()
-            available = [m.get("name") for m in tags_data.get("models", [])]
-
-            # Check currently running / loaded models
-            loaded = []
-            try:
-                ps_res = httpx.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=3.0)
-                if ps_res.status_code == 200:
-                    ps_data = ps_res.json()
-                    loaded = [m.get("name") for m in ps_data.get("models", [])]
-            except Exception:
-                pass
-
-            # Sync internal state for loaded models
-            for model in ALL_MODELS:
-                if model in loaded:
-                    if self._model_states[model] != STATE_ACTIVE:
-                        self._model_states[model] = STATE_IDLE
-                else:
-                    if self._model_states[model] not in [STATE_LOADING, STATE_ACTIVE]:
-                        self._model_states[model] = STATE_OFF
-
-            return {
-                "connected": True,
-                "loaded_models": loaded,
-                "available_models": available
-            }
+            if tags_res.status_code == 200:
+                tags_data = tags_res.json()
+                available = [m.get("name") for m in tags_data.get("models", [])]
         except Exception:
-            return {"connected": False, "loaded_models": [], "available_models": []}
+            pass
+
+        return {
+            "connected": ollama_hw.get("connected", False),
+            "loaded_models": ollama_hw.get("loaded_models", []),
+            "available_models": available,
+            "total_vram_mb": ollama_hw.get("total_vram_mb", 0.0)
+        }
 
     def get_system_resources(self) -> Dict[str, Any]:
         """
         Collects real system resource metrics if available, or returns Unavailable.
         """
-        resources = {
-            "gpu_name": "Unavailable",
-            "vram_usage": "Unavailable",
-            "ram_usage": "Unavailable",
-            "loaded_models_count": len([s for s in self._model_states.values() if s in [STATE_ACTIVE, STATE_IDLE]])
+        hw = resource_manager.probe_hardware_and_ollama()
+        matrix = resource_manager.get_resource_matrix()
+
+        return {
+            "gpu_name": hw["gpu"]["name"],
+            "vram_usage": hw["gpu"]["display"],
+            "ram_usage": hw["ram"]["display"],
+            "cpu_percent": hw["cpu_percent"],
+            "loaded_models_count": matrix.get("loaded_components_count", 0)
         }
-
-        try:
-            import psutil
-            mem = psutil.virtual_memory()
-            resources["ram_usage"] = f"{round(mem.used / (1024**3), 1)}GB / {round(mem.total / (1024**3), 1)}GB ({mem.percent}%)"
-        except ImportError:
-            pass
-
-        return resources
 
 
 # Global model manager singleton
 model_manager = ModelManager()
+

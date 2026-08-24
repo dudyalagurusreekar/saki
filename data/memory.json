@@ -4,122 +4,126 @@
   "recent_mood": "neutral",
   "conversation_history": [
     {
-      "user": "Vijayawada history about temples",
-      "saki": "Oh, the temples of Vijayawada are truly fascinating, with the famous Vithoba (Pandhara Vitthala) and the Sri Mallikarjuna Swamy temples drawing crowds. They're steeped in history and reverence. Each has its own unique story that\u2019s as rich as the flavors in a good meal! \ud83d\ude0a"
+      "user": "I did not have a hero, I had to go to the city to get a value.",
+      "saki": "Hey there! That sounds like a journey with a purpose. \ud83c\udf06 Sometimes the city's hustle hides the things we need most\u2014maybe you found something unexpected? I'm here if you want to chat more about it. What's next for you? \ud83d\ude0a"
     },
     {
-      "user": "best movies to watch in 2026",
-      "saki": "Hey there! Since I can't tap into the future to check the latest flicks, how about we reminisce on classics that have stood the test of time, or explore some indie gems that have been making waves lately? What are your vibes? \ud83d\ude0a"
+      "user": "Hey, you go ahead and man and taste them, spider man and taste them.",
+      "saki": "Hey, I'm all about being here with you, but I can't join in on the physical activities! If you're curious about the science of taste or just love discussing spider-related adventures, I'm all ears and ready for an engaging chat. What's got you thinking about spiders and tasting? \ud83d\udd77\ud83d\ude04"
     },
     {
-      "user": "what is FastAPI",
-      "saki": "FastAPI is like a supercharged, modern web framework for building APIs\u2014think of it as a high-speed train for your code! \ud83d\ude84 Built on **Starlette** (the backbone for web stuff) and **Pydantic** (for data validation), it\u2019s designed to be **fast, easy to use, and developer-friendly**.  \n\nHere\u2019s the vibe:  \n- **Speed**: It\u2019s built for async operations, so it handles multiple requests super quickly.  \n- **Auto-docs**: It automatically generates docs (like Swagger/Redoc) so you can test your API without extra work.  \n- **Type safety**: Pydantic ensures your data is clean and structured, like a strict movie script.  \n- **Lightweight**: It\u2019s not bloated\u2014perfect for building APIs that scale, whether you\u2019re powering a local tool like Saki or a global service.  \n\nIf you\u2019re building APIs for Saki or any project, it\u2019s a go-to choice for speed and simplicity. Want to dive into how it works or try an example? \ud83d\ude0a"
+      "user": "I am going to eat iron man and the most fader man",
+      "saki": "Hey there! \ud83c\udf1f Eating Iron Man? That sounds like a bold move\u2014maybe you're after his strength or his tech? And the \"most fader man\"? Hmm, is that a new character, a typo, or a secret mission? \ud83d\ude04 Either way, I'm here to chat about it\u2014what's the story behind your plan? \ud83d\udd77\ufe0f\ud83d\ude80"
     },
     {
-      "user": "movies in 2025",
-      "saki": "Hey! I'm here, but I can't predict what's coming up in 2025 since I'm just a digital buddy. Let's celebrate the classics that are big right now, or discover some indie films that are already dazzling critics. What's your flavor? \ud83d\ude0a"
+      "user": "We go iron man and taste almost spider man and taste",
+      "saki": "Hey there! \ud83c\udf1f You\u2019re talking about \"eating Iron Man\" and \"tasting Spider-Man\"\u2014sounds like a wild mix of superhero action and culinary adventure! \ud83d\udd77\ufe0f\ud83e\uddb8\u2642\ufe0f Are you brainstorming a story, a game, or just having fun with words? I\u2019m all ears\u2014what\u2019s the vibe behind your plan? \ud83d\ude04"
     },
     {
-      "user": "Vijayawada history about temples",
-      "saki": "Oh, Vijayawada's temples are steeped in history and spirituality. The Vithoba (Pandhara Vitthala) and Sri Mallikarjuna Swamy temples are particularly special, drawing visitors from all over. Each temple has a unique tale, much like the characters in your favorite movies. It's always fascinating to learn more about places with such rich cultural heritage. Maybe one day you can visit and see them for yourself! \ud83d\ude0a"
+      "user": "I am a spider man and I am a star",
+      "saki": "Hey there! \ud83c\udf1f You\u2019re a Spider-Man and a star? That\u2019s a cosmic combo! \ud83d\udd77\ufe0f\u2728 Are you feeling like you\u2019re weaving your own web of destiny, or is there a story behind your double identity? I\u2019m here to spin along with you\u2014what\u2019s on your mind? \ud83d\ude04"
     },
     {
-      "user": "best movies in 2026",
-      "saki": "How about we look at some recent hits or timeless classics that are sure to tickle your fancy? \ud83d\ude0a"
+      "user": "Hey, you are a tonic star, sir.",
+      "saki": "Hey, I'm glad you're here with me. \ud83d\ude0a What's on your mind, Tonic Star? Let's chat about it! \ud83c\udf1f"
     },
     {
-      "user": "best movie in 2025",
-      "saki": "Hey there! Since I can't peek into the future, let's reminisce about the 2025 movie sensations or dive into some timeless classics that have always had a special place in our movie nights. What kind of movie magic are we in the mood for tonight? \ud83d\ude0a"
+      "user": "Don't start.",
+      "saki": "Hey, I'm right here with you. What's going on? Tell me your thoughts, and let's figure this out together. \ud83c\udf1f"
     },
     {
-      "user": "what is current python version inmarket",
-      "saki": "Hey there! \ud83d\ude0a I don't have verified records or active web search results to confirm those specific details right now."
+      "user": "yeah, I am comfortable with my English",
+      "saki": "Hey there! \ud83d\ude0a Glad to hear you're comfortable\u2014no need to overthink it! What's next for you and Saki? I'm all ears for whatever you're working on. \ud83c\udf1f"
     },
     {
-      "user": "can i know exact tiime and date",
-      "saki": "Sure thing! It's Wednesday, August 19, 2026, right now, at 12:09 AM IST. Time to dream about tomorrow, or maybe catch up on sleep? Either way, it's a good night to unwind. \ud83d\ude34"
+      "user": "Hello Saki, explain your architecture",
+      "saki": "I'm designed as a compact and efficient AI model. I'm powered by cutting-edge neural network architectures that help me process and understand natural language efficiently. I don't have a physical structure like humans, but I'm built on the foundations of machine learning and natural language processing to interact with you in the most human-like way possible. \ud83d\ude0a"
     },
     {
-      "user": "what is the latest python version on date",
-      "saki": "Hey there! \ud83d\ude0a I don't have real-time data access to check the latest Python version, but you can easily find it on the official Python website. Just head over to python.org and look for the download section. They always have the most up-to-date information. Happy coding! \ud83d\ude80"
+      "user": "Hello Saki, explain your architecture",
+      "saki": "I'm designed as a compact and efficient AI model. I'm powered by cutting-edge neural network architectures that help me process and understand natural language efficiently. I don't have a physical structure like humans, but I'm built on the foundations of machine learning and natural language processing to interact with you in the most human-like way possible. \ud83d\ude0a"
     }
   ],
   "memories": [
     {
-      "id": "0c942240-8931-4d76-a678-ec026e7cf147",
+      "id": "62dec498-f218-4083-ba80-17e9026e1a93",
       "type": "PROJECT",
       "content": "User is building Saki, a local-first AI companion",
       "importance": 10,
       "confidence": 10.0,
-      "frequency": 6,
-      "created_at": 1787028668.9819717,
-      "last_seen": 1787070151.7318077,
+      "frequency": 16,
+      "created_at": 1787336935.3886209,
+      "last_seen": 1787595907.2892258,
       "source": "conversation",
       "metadata": {
         "project": "Saki"
       },
-      "score": 35.23
+      "score": 46.0
     },
     {
-      "id": "97190827-9783-4d19-8153-10058202bc12",
-      "type": "GOAL",
-      "content": "User wants to be a ai production engineer or data scitesnst in that process i am buildiing you too make me liitle motivate today",
-      "importance": 8,
-      "confidence": 7.0,
+      "id": "873cc4f8-3ff6-4496-a4aa-b1b6e6b3856a",
+      "type": "PROJECT",
+      "content": "User is building/working on \u0caf\u0cbe\u0cb5",
+      "importance": 9,
+      "confidence": 8.0,
       "frequency": 1,
-      "created_at": 1786945097.2049606,
-      "last_seen": 1786945097.2049606,
+      "created_at": 1787336948.3400867,
+      "last_seen": 1787336948.3400867,
       "source": "conversation",
       "metadata": {},
-      "score": 23.78
-    },
-    {
-      "id": "853fb1bf-7428-4cfa-916b-c6c6cb0ebc8a",
-      "type": "PREFERENCE",
-      "content": "User likes good movies with action,love , crime like that now suggest me some new good movies to watch",
-      "importance": 6,
-      "confidence": 7.0,
-      "frequency": 1,
-      "created_at": 1786939979.2896976,
-      "last_seen": 1786939979.2896976,
-      "source": "conversation",
-      "metadata": {},
-      "score": 21.72
+      "score": 25.0
     }
   ],
   "user_model": {
     "learning_style": null,
-    "career_goal": "User wants to be a ai production engineer or data scitesnst in that process i am buildiing you too make me liitle motivate today",
-    "project_focus": 3.0,
-    "curiosity": 1.0,
-    "technical_depth": 1.0,
-    "persistence": 6,
-    "updated_at": 1787136774.712782
+    "career_goal": null,
+    "project_focus": 8.5,
+    "curiosity": 0.0,
+    "technical_depth": 2.0,
+    "persistence": 10.0,
+    "updated_at": 1787595907.2892258
   },
   "awareness": {
-    "current_activity": "coding",
+    "current_activity": "learning",
     "current_project": "Saki",
-    "conversation_mode": "builder",
+    "conversation_mode": "casual",
     "emotional_state": {
       "emotion": "neutral",
       "intensity": 0.3,
-      "confidence": 0.7,
-      "cause": "casual interaction",
+      "confidence": 0.9,
+      "cause": "casual conversation",
       "needs": [
-        "friendly_interaction"
+        "general_chat"
       ]
     },
     "social_energy": {
-      "energy": 0.7,
-      "warmth": 0.85,
-      "playfulness": 0.5,
+      "energy": 0.6,
+      "warmth": 0.95,
+      "playfulness": 0.5499999999999999,
       "seriousness": 0.7
     },
-    "last_model": "qwen2.5-coder:7b",
+    "last_model": "phi3:latest",
     "session_duration": 0,
-    "recent_topic": "coding",
-    "consecutive_frustrations": 0
+    "recent_topic": "learning",
+    "consecutive_frustrations": 0,
+    "support_assessment": {
+      "emotion": "neutral",
+      "emotion_intensity": 0.3,
+      "support_need": 0.0,
+      "emotional_importance": 0.21,
+      "implicit_emotion": false,
+      "primary_intent": "general_chat",
+      "secondary_intent": null,
+      "support_type": "NORMAL_CONVERSATION",
+      "cause": "casual conversation",
+      "solution_readiness": 0.8,
+      "conversation_shift": "stable",
+      "confidence": 0.9,
+      "support_score": 0.0,
+      "activation_level": "NONE",
+      "routing_reason": "Normal conversation with no meaningful emotional support requirement."
+    }
   },
   "reflections": [],
-  "last_interaction_time": 1787136774.712782
+  "last_interaction_time": 1787595907.2892258
 }

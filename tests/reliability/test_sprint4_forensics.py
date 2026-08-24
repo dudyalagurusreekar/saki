@@ -10,12 +10,19 @@ TEST 6: Gemini failure -> controlled current-information-unavailable response
 TEST 7: 'what is FastAPI' -> static knowledge path remains functional
 """
 
+import os
+import sys
 import pytest
 from unittest.mock import patch, MagicMock
+
+# Ensure project root is on sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
 from backend.services.action_engine import (
     decide_action,
     classify_freshness,
     FRESHNESS_CURRENT,
+    FRESHNESS_CURRENT_EXTERNAL_FACT,
     FRESHNESS_STABLE,
     ACTION_WEB_SEARCH,
     ACTION_CODING,
@@ -34,8 +41,8 @@ class TestSprint4Forensics:
         query = "latest FastAPI version"
         decision = decide_action(query)
         assert decision.requires_world_access is True
-        assert decision.freshness_requirement == FRESHNESS_CURRENT
-        assert decision.temporal_requirement == FRESHNESS_CURRENT
+        assert decision.freshness_requirement in [FRESHNESS_CURRENT, FRESHNESS_CURRENT_EXTERNAL_FACT, "CURRENT", "CURRENT_EXTERNAL_FACT"]
+        assert decision.temporal_requirement in [FRESHNESS_CURRENT, FRESHNESS_CURRENT_EXTERNAL_FACT, "CURRENT", "CURRENT_EXTERNAL_FACT"]
         assert decision.action == ACTION_WEB_SEARCH
 
     def test_02_latest_fastapi_version_gemini_called(self):

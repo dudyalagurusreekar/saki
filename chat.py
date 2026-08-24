@@ -17,68 +17,19 @@ PRIVACY_MODE = "MEDIUM"
 MODEL_FAST = "phi3"
 
 # -------------------------
-# PIPER CONFIG
+# SAKI TTS INTEGRATION (SPRINT 5)
 # -------------------------
-PIPER_PATH = r"D:\applications\piper\piper.exe"
-VOICE_PATH = r"D:\applications\piper\en_US-amy-medium.onnx"
-TEMP_AUDIO = r"D:\applications\piper\temp.wav"
-
-IDLE_TIMEOUT = 30
+from backend.services.tts_service import tts_service
 
 
-MODEL_EMO = "nous-hermes2"
-MAX_MEMORY = 10
-
-# -------------------------
-# INTENT DETECTION
-# -------------------------
-def detect_intent(user_input):
-    text = user_input.lower()
-
-    if any(w in text for w in [
-        "sad", "lonely", "tired", "depressed", "stress",
-        "anxious", "upset", "not feeling good"
-    ]):
-        return "emotional"
-
-    if any(w in text for w in [
-        "news", "today", "latest", "headline", "current"
-    ]):
-        return "news"
-
-    if any(w in text for w in [
-        "hi", "hello", "hey", "what's up"
-    ]):
-        return "chat"
-
-    return "question"
-
-
-
-# -------------------------
-# VOICE OUTPUT (CLEAN + NON-BLOCKING)
-# -------------------------
 def speak(text):
+    """Synthesizes text in-memory and plays audio non-blockingly via Saki TTS service."""
     try:
-        # add natural pauses
-        text = text.replace(".", "... ")
-        text = text.replace(",", ", ")
-        text = "Hmm... " + text  # conversational start
-
-        safe_text = text.replace('"', '').replace('&', 'and')
-
-        print("🔊 Speaking:", safe_text)
-
-        cmd = f'echo {safe_text} | "{PIPER_PATH}" -m "{VOICE_PATH}" -f "{TEMP_AUDIO}"'
-        subprocess.run(cmd, shell=True)
-
-        # Play audio (blocking but reliable)
-        subprocess.run(
-            ["powershell", "-c", f"(New-Object Media.SoundPlayer '{TEMP_AUDIO}').PlaySync();"]
-        )
-
+        clean_preview = text.strip().replace("\n", " ")
+        print("🔊 Speaking:", clean_preview[:80] + ("..." if len(clean_preview) > 80 else ""))
+        tts_service.synthesize_and_play(text)
     except Exception as e:
-        print("⚠ Voice error:", e)
+        print("⚠ Voice output error:", e)
 # -------------------------
 # VOICE INPUT (STABLE)
 # -------------------------

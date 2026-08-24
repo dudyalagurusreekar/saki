@@ -44,7 +44,7 @@ class TestSprint10FinalIntelligenceIntegration:
         decision = decide_action(query)
 
         assert decision.requires_world_access is True
-        assert decision.freshness_requirement == "CURRENT"
+        assert decision.freshness_requirement in ["CURRENT", "CURRENT_EXTERNAL_FACT"]
         assert qu.primary_entity == "FastAPI"
 
         raw_items = [

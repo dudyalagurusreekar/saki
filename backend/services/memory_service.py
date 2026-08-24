@@ -83,15 +83,16 @@ def _default_memory() -> dict[str, Any]:
 
 
 def _tokenize(text: str) -> set[str]:
+    """Tokenizes text supporting Latin, Telugu, and Kannada Unicode words."""
     return {
         word
-        for word in re.findall(r"[a-z0-9]+", text.lower())
-        if len(word) > 2 and word not in STOP_WORDS
+        for word in re.findall(r"[^\s\.,!?:;\"'()\[\]{}<>/\\#*`~_]+", text.lower())
+        if len(word) > 1 and word not in STOP_WORDS
     }
 
 
 def _canonical(text: str) -> str:
-    return " ".join(re.findall(r"[a-z0-9]+", text.lower()))
+    return " ".join(re.findall(r"[^\s\.,!?:;\"'()\[\]{}<>/\\#*`~_]+", text.lower()))
 
 
 def _clean_fragment(text: str) -> str:
@@ -341,6 +342,18 @@ def extract_memories(user_input: str, response: str = "") -> list[dict[str, Any]
         # Patterns
         (r"\bi always forget ([^.!?]{3,120})", "PATTERN", "User tends to forget {}", 7, 7),
         (r"\bi keep struggling with ([^.!?]{3,120})", "PATTERN", "User struggles with {}", 7, 7),
+
+        # Indic Telugu Memory Patterns
+        (r"(?:నా పేరు|నా నేమ్)\s+([^\.!\?]{2,60})", "FACT", "User's name is {}", 9, 9),
+        (r"(?:నాకు|నేను)\s+([^\.!\?]{2,60})\s+(?:ఇష్టం|అభిరుచి|బాగా నచ్చుతుంది)", "PREFERENCE", "User prefers/likes {}", 7, 8),
+        (r"(?:నేను|మేము)\s+([^\.!\?]{2,60})\s+(?:చేస్తున్నాను|చేస్తున్నాం|బిల్డ్ చేస్తున్నాం|ప్రాజెక్ట్)", "PROJECT", "User is building/working on {}", 9, 8),
+        (r"(?:నా లక్ష్యం|నా గోల్)\s+([^\.!\?]{2,60})", "GOAL", "User's goal is to {}", 8, 8),
+
+        # Indic Kannada Memory Patterns
+        (r"(?:ನನ್ನ ಹೆಸರು|ನನ್ನ ನೇಮ್)\s+([^\.!\?]{2,60})", "FACT", "User's name is {}", 9, 9),
+        (r"(?:ನನಗೆ|ನಾನು)\s+([^\.!\?]{2,60})\s+(?:ಇಷ್ಟ|ಮೆಚ್ಚು|ಬಹಳ ಇಷ್ಟ)", "PREFERENCE", "User prefers/likes {}", 7, 8),
+        (r"(?:ನಾನು|ನಾವು)\s+([^\.!\?]{2,60})\s+(?:ಮಾಡುತ್ತಿದ್ದೇವೆ|ಬಿಲ್ಡ್ ಮಾಡುತ್ತಿದ್ದೇವೆ|ಪ್ರಾಜೆಕ್ಟ್)", "PROJECT", "User is building/working on {}", 9, 8),
+        (r"(?:ನನ್ನ ಗುರಿ|ನನ್ನ ಧ್ಯೇಯ)\s+([^\.!\?]{2,60})", "GOAL", "User's goal is to {}", 8, 8),
     ]
 
     for pattern, memory_type, template, importance, confidence in patterns:
@@ -471,10 +484,19 @@ def retrieve_memories(
     active_project: Optional[str] = None
 ) -> list[dict[str, Any]]:
     """
-    Intelligently retrieves memories based on query tokens, active mode, and active project.
+    Intelligently retrieves memories based on query tokens, active mode, active project,
+    and cross-lingual semantic keyword expansion (Sprint 19).
     """
+    from backend.services.multilingual_service import multilingual_service
+
     memory = normalize_memory(memory)
     query_tokens = _tokenize(query)
+    try:
+        expanded_synonyms = multilingual_service.expand_memory_query_terms(query)
+        query_tokens.update(expanded_synonyms)
+    except Exception:
+        pass
+
     ranked: list[tuple[float, dict[str, Any]]] = []
 
     for item in memory.get("memories", []):

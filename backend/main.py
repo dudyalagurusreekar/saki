@@ -7,6 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.routes.chat import router as chat_router
 from backend.routes.memory import router as memory_router
 from backend.routes.system import router as system_router
+from backend.routes.voice import router as voice_router
+from backend.routes.microphone import router as microphone_router
 
 # -------------------------
 # APP INIT
@@ -36,6 +38,8 @@ app.add_middleware(
 app.include_router(chat_router, prefix="/api")
 app.include_router(memory_router, prefix="/api")
 app.include_router(system_router, prefix="/api")
+app.include_router(voice_router, prefix="/api")
+app.include_router(microphone_router)
 
 # -------------------------
 # ROOT ENDPOINT

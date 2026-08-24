@@ -43,8 +43,19 @@ coverage/
 # Cache
 .cache/venv/
 
+# Models & Weights
+models/
+*.onnx
+*.bin
+
+# Temporary & Scratch
+.freebuff/
+scratch/
+data/test_uploads/
+
 # Agent & AI Helper Resources
 !docs/
 !AGENTS.md
 !GEMINI.md
 !.agents/
+

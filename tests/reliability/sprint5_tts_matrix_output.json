@@ -1,0 +1,388 @@
+{
+  "engine": "Kokoro-82M ONNX",
+  "sample_rate": 24000,
+  "selected_default_voice": "af_heart",
+  "status": {
+    "provider": "kokoro",
+    "initialized": true,
+    "available": true,
+    "model_path": "C:\\Users\\gurus\\work\\saki\\models\\kokoro\\kokoro-v1.0.onnx",
+    "voices_path": "C:\\Users\\gurus\\work\\saki\\models\\kokoro\\voices-v1.0.bin",
+    "model_size_mb": 310.45,
+    "voices_size_mb": 26.91,
+    "device": "cpu",
+    "license": "Apache-2.0",
+    "sample_rate": 24000,
+    "supported_female_voices": [
+      "af_heart",
+      "af_bella",
+      "af_nicole",
+      "af_sarah",
+      "af_sky"
+    ],
+    "recommended_voice": "af_heart",
+    "voice_personas": {
+      "af_heart": {
+        "tone": "Warm, natural, expressive conversational default",
+        "accent": "American",
+        "vibe": "Companionable & empathetic"
+      },
+      "af_bella": {
+        "tone": "Bright, animated, energetic",
+        "accent": "American",
+        "vibe": "Playful & witty"
+      },
+      "af_nicole": {
+        "tone": "Calm, articulate, steady",
+        "accent": "American",
+        "vibe": "Supportive & focused"
+      },
+      "af_sarah": {
+        "tone": "Crisp, balanced, intellectual",
+        "accent": "American",
+        "vibe": "Analytical & clear"
+      },
+      "af_sky": {
+        "tone": "Youthful, friendly, upbeat",
+        "accent": "American",
+        "vibe": "Casual & cheerful"
+      }
+    },
+    "error": null
+  },
+  "results_by_voice": {
+    "af_heart": [
+      {
+        "prompt_id": "casual_greeting",
+        "category": "Casual Greeting",
+        "text": "Hey! Good to see you. What are we building or exploring today? \ud83c\udf38",
+        "character_count": 62,
+        "word_count": 12,
+        "duration_seconds": 3.541,
+        "latency_ms": 1300.34,
+        "first_chunk_latency_ms": 455.12,
+        "rtf": 0.367,
+        "cpu_percent": 29.8,
+        "memory_mb": 799.0,
+        "audio_bytes_size": 170028
+      },
+      {
+        "prompt_id": "empathetic_support",
+        "category": "Empathetic Support",
+        "text": "I'm right here with you. Take a breath, we can solve this together step by step.",
+        "character_count": 80,
+        "word_count": 16,
+        "duration_seconds": 4.352,
+        "latency_ms": 1560.62,
+        "first_chunk_latency_ms": 546.22,
+        "rtf": 0.359,
+        "cpu_percent": 28.4,
+        "memory_mb": 829.5,
+        "audio_bytes_size": 208940
+      },
+      {
+        "prompt_id": "technical_reasoning",
+        "category": "Technical Reasoning",
+        "text": "The asynchronous event loop handles concurrent network streams without blocking the main execution thread.",
+        "character_count": 106,
+        "word_count": 14,
+        "duration_seconds": 6.08,
+        "latency_ms": 2208.82,
+        "first_chunk_latency_ms": 773.09,
+        "rtf": 0.363,
+        "cpu_percent": 28.4,
+        "memory_mb": 856.9,
+        "audio_bytes_size": 291884
+      },
+      {
+        "prompt_id": "enthusiastic_action",
+        "category": "Enthusiastic Action",
+        "text": "That looks amazing! Let me run the build pipeline and test the changes right now.",
+        "character_count": 81,
+        "word_count": 15,
+        "duration_seconds": 4.672,
+        "latency_ms": 1716.01,
+        "first_chunk_latency_ms": 600.6,
+        "rtf": 0.367,
+        "cpu_percent": 28.9,
+        "memory_mb": 856.9,
+        "audio_bytes_size": 224300
+      }
+    ],
+    "af_bella": [
+      {
+        "prompt_id": "casual_greeting",
+        "category": "Casual Greeting",
+        "text": "Hey! Good to see you. What are we building or exploring today? \ud83c\udf38",
+        "character_count": 62,
+        "word_count": 12,
+        "duration_seconds": 3.648,
+        "latency_ms": 1420.55,
+        "first_chunk_latency_ms": 497.19,
+        "rtf": 0.389,
+        "cpu_percent": 29.8,
+        "memory_mb": 857.0,
+        "audio_bytes_size": 175148
+      },
+      {
+        "prompt_id": "empathetic_support",
+        "category": "Empathetic Support",
+        "text": "I'm right here with you. Take a breath, we can solve this together step by step.",
+        "character_count": 80,
+        "word_count": 16,
+        "duration_seconds": 4.48,
+        "latency_ms": 1757.82,
+        "first_chunk_latency_ms": 615.24,
+        "rtf": 0.392,
+        "cpu_percent": 31.8,
+        "memory_mb": 857.0,
+        "audio_bytes_size": 215084
+      },
+      {
+        "prompt_id": "technical_reasoning",
+        "category": "Technical Reasoning",
+        "text": "The asynchronous event loop handles concurrent network streams without blocking the main execution thread.",
+        "character_count": 106,
+        "word_count": 14,
+        "duration_seconds": 6.336,
+        "latency_ms": 2533.92,
+        "first_chunk_latency_ms": 886.87,
+        "rtf": 0.4,
+        "cpu_percent": 33.6,
+        "memory_mb": 915.8,
+        "audio_bytes_size": 304172
+      },
+      {
+        "prompt_id": "enthusiastic_action",
+        "category": "Enthusiastic Action",
+        "text": "That looks amazing! Let me run the build pipeline and test the changes right now.",
+        "character_count": 81,
+        "word_count": 15,
+        "duration_seconds": 4.843,
+        "latency_ms": 1919.57,
+        "first_chunk_latency_ms": 671.85,
+        "rtf": 0.396,
+        "cpu_percent": 78.7,
+        "memory_mb": 915.8,
+        "audio_bytes_size": 232492
+      }
+    ],
+    "af_nicole": [
+      {
+        "prompt_id": "casual_greeting",
+        "category": "Casual Greeting",
+        "text": "Hey! Good to see you. What are we building or exploring today? \ud83c\udf38",
+        "character_count": 62,
+        "word_count": 12,
+        "duration_seconds": 5.035,
+        "latency_ms": 1898.8,
+        "first_chunk_latency_ms": 664.58,
+        "rtf": 0.377,
+        "cpu_percent": 81.1,
+        "memory_mb": 915.8,
+        "audio_bytes_size": 241708
+      },
+      {
+        "prompt_id": "empathetic_support",
+        "category": "Empathetic Support",
+        "text": "I'm right here with you. Take a breath, we can solve this together step by step.",
+        "character_count": 80,
+        "word_count": 16,
+        "duration_seconds": 6.784,
+        "latency_ms": 2577.02,
+        "first_chunk_latency_ms": 901.96,
+        "rtf": 0.38,
+        "cpu_percent": 32.6,
+        "memory_mb": 918.7,
+        "audio_bytes_size": 325676
+      },
+      {
+        "prompt_id": "technical_reasoning",
+        "category": "Technical Reasoning",
+        "text": "The asynchronous event loop handles concurrent network streams without blocking the main execution thread.",
+        "character_count": 106,
+        "word_count": 14,
+        "duration_seconds": 8.491,
+        "latency_ms": 3202.14,
+        "first_chunk_latency_ms": 1120.75,
+        "rtf": 0.377,
+        "cpu_percent": 32.0,
+        "memory_mb": 953.1,
+        "audio_bytes_size": 407596
+      },
+      {
+        "prompt_id": "enthusiastic_action",
+        "category": "Enthusiastic Action",
+        "text": "That looks amazing! Let me run the build pipeline and test the changes right now.",
+        "character_count": 81,
+        "word_count": 15,
+        "duration_seconds": 7.424,
+        "latency_ms": 2737.94,
+        "first_chunk_latency_ms": 958.28,
+        "rtf": 0.369,
+        "cpu_percent": 32.0,
+        "memory_mb": 953.6,
+        "audio_bytes_size": 356396
+      }
+    ],
+    "af_sarah": [
+      {
+        "prompt_id": "casual_greeting",
+        "category": "Casual Greeting",
+        "text": "Hey! Good to see you. What are we building or exploring today? \ud83c\udf38",
+        "character_count": 62,
+        "word_count": 12,
+        "duration_seconds": 3.371,
+        "latency_ms": 1444.87,
+        "first_chunk_latency_ms": 505.7,
+        "rtf": 0.429,
+        "cpu_percent": 73.0,
+        "memory_mb": 953.7,
+        "audio_bytes_size": 161836
+      },
+      {
+        "prompt_id": "empathetic_support",
+        "category": "Empathetic Support",
+        "text": "I'm right here with you. Take a breath, we can solve this together step by step.",
+        "character_count": 80,
+        "word_count": 16,
+        "duration_seconds": 4.48,
+        "latency_ms": 1813.89,
+        "first_chunk_latency_ms": 634.86,
+        "rtf": 0.405,
+        "cpu_percent": 30.9,
+        "memory_mb": 953.7,
+        "audio_bytes_size": 215084
+      },
+      {
+        "prompt_id": "technical_reasoning",
+        "category": "Technical Reasoning",
+        "text": "The asynchronous event loop handles concurrent network streams without blocking the main execution thread.",
+        "character_count": 106,
+        "word_count": 14,
+        "duration_seconds": 5.845,
+        "latency_ms": 2346.47,
+        "first_chunk_latency_ms": 821.26,
+        "rtf": 0.401,
+        "cpu_percent": 32.2,
+        "memory_mb": 954.0,
+        "audio_bytes_size": 280620
+      },
+      {
+        "prompt_id": "enthusiastic_action",
+        "category": "Enthusiastic Action",
+        "text": "That looks amazing! Let me run the build pipeline and test the changes right now.",
+        "character_count": 81,
+        "word_count": 15,
+        "duration_seconds": 4.608,
+        "latency_ms": 1870.51,
+        "first_chunk_latency_ms": 654.68,
+        "rtf": 0.406,
+        "cpu_percent": 71.0,
+        "memory_mb": 954.0,
+        "audio_bytes_size": 221228
+      }
+    ],
+    "af_sky": [
+      {
+        "prompt_id": "casual_greeting",
+        "category": "Casual Greeting",
+        "text": "Hey! Good to see you. What are we building or exploring today? \ud83c\udf38",
+        "character_count": 62,
+        "word_count": 12,
+        "duration_seconds": 3.413,
+        "latency_ms": 1252.67,
+        "first_chunk_latency_ms": 438.44,
+        "rtf": 0.367,
+        "cpu_percent": 30.1,
+        "memory_mb": 954.0,
+        "audio_bytes_size": 163884
+      },
+      {
+        "prompt_id": "empathetic_support",
+        "category": "Empathetic Support",
+        "text": "I'm right here with you. Take a breath, we can solve this together step by step.",
+        "character_count": 80,
+        "word_count": 16,
+        "duration_seconds": 4.48,
+        "latency_ms": 1655.96,
+        "first_chunk_latency_ms": 579.58,
+        "rtf": 0.37,
+        "cpu_percent": 72.6,
+        "memory_mb": 954.0,
+        "audio_bytes_size": 215084
+      },
+      {
+        "prompt_id": "technical_reasoning",
+        "category": "Technical Reasoning",
+        "text": "The asynchronous event loop handles concurrent network streams without blocking the main execution thread.",
+        "character_count": 106,
+        "word_count": 14,
+        "duration_seconds": 5.867,
+        "latency_ms": 2217.32,
+        "first_chunk_latency_ms": 776.06,
+        "rtf": 0.378,
+        "cpu_percent": 30.7,
+        "memory_mb": 954.0,
+        "audio_bytes_size": 281644
+      },
+      {
+        "prompt_id": "enthusiastic_action",
+        "category": "Enthusiastic Action",
+        "text": "That looks amazing! Let me run the build pipeline and test the changes right now.",
+        "character_count": 81,
+        "word_count": 15,
+        "duration_seconds": 4.587,
+        "latency_ms": 1813.35,
+        "first_chunk_latency_ms": 634.67,
+        "rtf": 0.395,
+        "cpu_percent": 31.1,
+        "memory_mb": 954.4,
+        "audio_bytes_size": 220204
+      }
+    ]
+  },
+  "voice_averages": {
+    "af_heart": {
+      "avg_latency_ms": 1696.45,
+      "avg_duration_sec": 4.66,
+      "avg_rtf": 0.364,
+      "avg_cpu_percent": 28.8,
+      "avg_memory_mb": 835.6,
+      "total_chars_tested": 329
+    },
+    "af_bella": {
+      "avg_latency_ms": 1907.97,
+      "avg_duration_sec": 4.83,
+      "avg_rtf": 0.395,
+      "avg_cpu_percent": 43.5,
+      "avg_memory_mb": 886.4,
+      "total_chars_tested": 329
+    },
+    "af_nicole": {
+      "avg_latency_ms": 2603.97,
+      "avg_duration_sec": 6.93,
+      "avg_rtf": 0.376,
+      "avg_cpu_percent": 44.4,
+      "avg_memory_mb": 935.3,
+      "total_chars_tested": 329
+    },
+    "af_sarah": {
+      "avg_latency_ms": 1868.93,
+      "avg_duration_sec": 4.58,
+      "avg_rtf": 0.41,
+      "avg_cpu_percent": 51.8,
+      "avg_memory_mb": 953.8,
+      "total_chars_tested": 329
+    },
+    "af_sky": {
+      "avg_latency_ms": 1734.82,
+      "avg_duration_sec": 4.59,
+      "avg_rtf": 0.377,
+      "avg_cpu_percent": 41.1,
+      "avg_memory_mb": 954.1,
+      "total_chars_tested": 329
+    }
+  },
+  "timestamp": 1787152826.8610442
+}

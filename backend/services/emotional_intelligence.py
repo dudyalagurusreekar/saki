@@ -7,6 +7,12 @@ import re
 import time
 from typing import List, Dict, Any, Optional, Tuple
 from pydantic import BaseModel, Field
+from backend.services.emotional_support_service import (
+    SupportAssessment,
+    SupportAssessmentEngine,
+    SupportType,
+    HermesActivationLevel
+)
 
 
 class EmotionalState(BaseModel):
@@ -29,6 +35,7 @@ class SakiAwareness(BaseModel):
     current_project: Optional[str] = Field(default="Saki", description="Active project name")
     conversation_mode: str = Field(default="casual", description="casual, support, thinking, builder, vision")
     emotional_state: EmotionalState = Field(default_factory=EmotionalState)
+    support_assessment: Optional[SupportAssessment] = None
     social_energy: SocialEnergyState = Field(default_factory=SocialEnergyState)
     last_model: str = Field(default="phi3:latest")
     session_duration: int = Field(default=0, description="Estimated session duration in minutes")
@@ -238,7 +245,9 @@ def build_awareness(
     previous_awareness: Optional[SakiAwareness] = None,
     has_code: bool = False,
     has_image: bool = False,
-    session_start_time: Optional[float] = None
+    session_start_time: Optional[float] = None,
+    support_assessment: Optional[SupportAssessment] = None,
+    recent_history: Optional[List[Dict[str, Any]]] = None
 ) -> SakiAwareness:
     """
     Constructs an updated SakiAwareness state representing Saki's live context.
@@ -246,7 +255,24 @@ def build_awareness(
     prev_frustrations = previous_awareness.consecutive_frustrations if previous_awareness else 0
     prev_project = previous_awareness.current_project if previous_awareness else "Saki"
     
-    emotional_state, new_frustrations = analyze_emotional_state(query, prev_frustrations)
+    if support_assessment is None:
+        support_assessment = SupportAssessmentEngine.evaluate(
+            user_input=query,
+            recent_history=recent_history,
+            previous_assessment=previous_awareness.support_assessment if previous_awareness else None,
+            active_project=prev_project
+        )
+
+    # Populate EmotionalState from SupportAssessment for full backwards-compatibility
+    emotional_state = EmotionalState(
+        emotion=support_assessment.emotion,
+        intensity=support_assessment.emotion_intensity,
+        confidence=support_assessment.confidence,
+        cause=support_assessment.cause,
+        needs=[support_assessment.primary_intent] if support_assessment.primary_intent else ["friendly_interaction"]
+    )
+    new_frustrations = prev_frustrations + 1 if support_assessment.emotion in ["frustrated", "discouraged", "exhausted"] else 0
+
     activity = detect_activity(query, has_code, has_image)
     project = extract_active_project(query, prev_project)
     social_energy = calculate_social_energy(emotional_state, activity, mode)
@@ -261,6 +287,7 @@ def build_awareness(
         current_project=project,
         conversation_mode=mode,
         emotional_state=emotional_state,
+        support_assessment=support_assessment,
         social_energy=social_energy,
         last_model=selected_model,
         session_duration=duration,

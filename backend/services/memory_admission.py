@@ -97,6 +97,10 @@ class MemoryAdmissionDecision(BaseModel):
     expiration: str = Field(default=EXPIRATION_EPHEMERAL)
     conflict_status: str = Field(default="NO_CONFLICT")
 
+    @property
+    def admit(self) -> bool:
+        return self.decision == ADMIT_DECISION_ADMIT
+
 
 class MemoryConflict(BaseModel):
     conflict_id: str = Field(default_factory=lambda: f"memcfl-{time.time_ns() % 1000000}")

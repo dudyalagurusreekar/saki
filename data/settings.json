@@ -1,9 +1,17 @@
 {
   "theme": "clear_sky",
   "reduced_animation": false,
-  "personality_warmth": 0.85,
-  "personality_playfulness": 0.6,
+  "personality_warmth": 0.9,
+  "personality_playfulness": 0.7,
   "personality_verbosity": 0.6,
   "privacy_mode": "MEDIUM",
-  "auto_keep_alive": "5m"
+  "auto_keep_alive": "5m",
+  "core_quality": "auto",
+  "core_opacity": 0.85,
+  "core_show_hud": true,
+  "audio_sensitivity": 2.1,
+  "voice_speed": 1,
+  "system_volume": 1,
+  "stt_model": "whisper-tiny",
+  "tts_voice": "af_heart"
 }

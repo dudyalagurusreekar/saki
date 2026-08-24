@@ -426,16 +426,27 @@ class RelevanceGate:
                 entity_score = 1.0
             else:
                 # Check partial token match
-                pe_tokens = pe_lower.split()
-                if any(t in full_text for t in pe_tokens if len(t) > 3):
+                pe_tokens = [t for t in re.findall(r"\w+", pe_lower) if len(t) > 3]
+                if pe_tokens and any(t in full_text for t in pe_tokens):
                     eval_res.entity_match = True
                     entity_score = 0.75
                 else:
                     eval_res.entity_match = False
-                    entity_score = 0.10
+                    entity_score = 0.0
         else:
-            eval_res.entity_match = True
-            entity_score = 0.80
+            # Fallback: check query content tokens
+            orig_tokens = [t for t in re.findall(r"\w+", getattr(qu, "original_query", "").lower()) if len(t) > 3 and t not in {"what", "special", "about", "tell", "this", "city", "with", "from", "when", "where", "which", "will", "some", "more", "much", "your", "mine", "their", "here", "there"}]
+            if orig_tokens:
+                matched_tokens = sum(1 for t in orig_tokens if t in full_text)
+                if matched_tokens > 0:
+                    eval_res.entity_match = True
+                    entity_score = min(1.0, 0.40 + (matched_tokens / len(orig_tokens)) * 0.60)
+                else:
+                    eval_res.entity_match = False
+                    entity_score = 0.0
+            else:
+                eval_res.entity_match = True
+                entity_score = 0.80
 
         # 2. Location Alignment
         location_score = 0.80
@@ -550,6 +561,10 @@ class RelevanceGate:
             0.15 * location_score +
             0.15 * coverage_score
         )
+
+        # Hard guard: If entity does not match, content is irrelevant
+        if not eval_res.entity_match:
+            raw_score = min(raw_score, 0.20)
 
         # Hard guard: If topic is an explicit negative collision or location is completely mismatching, penalize severely
         if query_topic in TOPIC_VOCABULARIES and not eval_res.topic_match and topic_score == 0.0:
@@ -761,12 +776,14 @@ class EvidenceIntelligenceEngine:
 
         # 5. Overall Status Determination
         has_relevant = any(ev.process_state == "RELEVANT" for ev in evidence_items)
-        if selection_res.overall_status in ["MULTI_SOURCE_SUPPORTED", "STALE_EVIDENCE", "INSUFFICIENT_TRUSTWORTHY_EVIDENCE", "CONFLICTED"]:
+        if not has_relevant:
+            status = EVIDENCE_STATUS_INSUFFICIENT
+        elif any(c.category == CONFLICT_DIRECT for c in conflicts):
+            status = EVIDENCE_STATUS_CONTRADICTORY
+        elif selection_res.overall_status in ["STALE_EVIDENCE", "INSUFFICIENT_TRUSTWORTHY_EVIDENCE", "CONFLICTED"]:
             status = selection_res.overall_status
         else:
-            status = EVIDENCE_STATUS_SUFFICIENT if has_relevant else EVIDENCE_STATUS_INSUFFICIENT
-            if any(c.category == CONFLICT_DIRECT for c in conflicts):
-                status = EVIDENCE_STATUS_CONTRADICTORY
+            status = EVIDENCE_STATUS_SUFFICIENT
 
         # Sort sources so official/primary sources and highest relevance appear first
         sources.sort(key=lambda s: (

@@ -1,16 +1,58 @@
+from enum import Enum
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
+class InputType(str, Enum):
+    TEXT = "TEXT"
+    VOICE = "VOICE"
+    IMAGE = "IMAGE"
+    MULTIMODAL = "MULTIMODAL"
+
 class RequestInput(BaseModel):
-    message: str
+    message: str = ""
     attachments: List[Dict[str, Any]] = Field(default_factory=list)
+    conversation_id: str = "default-session"
+    turn_id: Optional[str] = None
+    input_type: InputType = InputType.TEXT
+    language_hint: Optional[str] = None
+    language_mode: Optional[str] = "AUTO"
+    voice_metadata: Optional[Dict[str, Any]] = None
+    current_context: Optional[Dict[str, Any]] = None
+    enable_tts: bool = False
+    voice: Optional[str] = None
+    speed: Optional[float] = None
+    is_voice_mode: bool = False
+
+class UnifiedTurnRequest(BaseModel):
+    """
+    Standard normalized request schema for the Unified Saki Brain.
+    Unifies Text, Voice, Image, and Multimodal turns into one pipeline.
+    """
+    input_type: InputType = Field(default=InputType.TEXT, description="Input modality: TEXT, VOICE, IMAGE, MULTIMODAL")
+    text: str = Field(default="", description="Clean text or transcribed speech transcript")
+    conversation_id: str = Field(default="default-session", description="Active conversation session ID")
+    turn_id: str = Field(default_factory=lambda: f"turn_{int(__import__('time').time() * 1000)}", description="Unique turn ID")
+    language_hint: Optional[str] = Field(default=None, description="Optional caller language hint")
+    language_mode: Optional[str] = Field(default="AUTO", description="Caller language mode: AUTO, EN, TE, KN")
+    attachments: List[Dict[str, Any]] = Field(default_factory=list, description="Parsed attachment metadata or file paths")
+    voice_metadata: Optional[Dict[str, Any]] = Field(default=None, description="STT telemetry, audio metrics, play_locally flag")
+    current_context: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Active project, workspace, temporal state")
+    enable_tts: bool = Field(default=False, description="Whether to synthesize speech for the response")
+    voice: Optional[str] = Field(default=None, description="Selected voice identifier (e.g. af_heart, te_saki)")
+    speed: Optional[float] = Field(default=1.0, description="Speech rate multiplier")
+    is_voice_mode: bool = Field(default=False, description="Whether turn is part of a voice session")
 
 class NormalizedRequest(BaseModel):
-    id: str = Field(description="UUID request ID")
+    id: str = Field(description="UUID request / turn ID")
+    turn_id: Optional[str] = Field(default=None, description="Explicit turn ID")
+    input_type: InputType = Field(default=InputType.TEXT, description="Input modality: TEXT, VOICE, IMAGE, MULTIMODAL")
     query: str = Field(description="Clean, normalized query text")
     language: str = Field(default="en", description="Detected language code")
+    language_mode: str = Field(default="AUTO", description="Language mode: AUTO, EN, TE, KN")
     urls: List[str] = Field(default_factory=list, description="Extracted unique URLs")
     attachments: List[Dict[str, Any]] = Field(default_factory=list, description="Analyzed attachments metadata")
+    voice_metadata: Optional[Dict[str, Any]] = Field(default=None, description="Voice telemetry and audio metadata")
+    current_context: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Active project and contextual state")
     timestamp: str = Field(description="ISO 8601 UTC timestamp")
     is_markdown: bool = Field(default=False, description="True if input has markdown structure")
 

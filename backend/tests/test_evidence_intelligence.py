@@ -118,7 +118,7 @@ def test_evidence_synthesis_and_grounded_prompt_block():
     grounded_block = EvidenceIntelligenceEngine.format_grounded_prompt_block(package)
     assert "<external_web_content>" in grounded_block
     assert "--- [Source 1] ---" in grounded_block
-    assert "Title: Python 3.12 Features" in grounded_block
+    assert "Source: Python 3.12 Features" in grounded_block
     assert "URL: https://docs.python.org/3/whatsnew/3.12.html" in grounded_block
 
 

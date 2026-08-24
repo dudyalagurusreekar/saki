@@ -1,0 +1,201 @@
+{
+  "subsystem": "Saki Local Microphone & Silero VAD",
+  "vad_model": "Silero-VAD-v5",
+  "sample_rate": 16000,
+  "chunk_size_samples": 512,
+  "chunk_duration_ms": 32.0,
+  "initialization_time_ms": 68.75,
+  "overall_avg_chunk_latency_ms": 1.051,
+  "detected_devices_count": 10,
+  "input_devices": [
+    {
+      "id": 0,
+      "name": "Microsoft Sound Mapper - Input",
+      "channels": 2,
+      "default_samplerate": 44100.0,
+      "is_default": false
+    },
+    {
+      "id": 1,
+      "name": "Microphone Array (Realtek(R) Au",
+      "channels": 2,
+      "default_samplerate": 44100.0,
+      "is_default": false
+    },
+    {
+      "id": 4,
+      "name": "Primary Sound Capture Driver",
+      "channels": 2,
+      "default_samplerate": 44100.0,
+      "is_default": false
+    },
+    {
+      "id": 5,
+      "name": "Microphone Array (Realtek(R) Audio)",
+      "channels": 2,
+      "default_samplerate": 44100.0,
+      "is_default": false
+    },
+    {
+      "id": 9,
+      "name": "Microphone Array (Realtek(R) Audio)",
+      "channels": 2,
+      "default_samplerate": 48000.0,
+      "is_default": false
+    },
+    {
+      "id": 12,
+      "name": "PC Speaker (Realtek HD Audio 2nd output with HAP)",
+      "channels": 2,
+      "default_samplerate": 44100.0,
+      "is_default": false
+    },
+    {
+      "id": 13,
+      "name": "Microphone (Realtek HD Audio Mic input)",
+      "channels": 2,
+      "default_samplerate": 44100.0,
+      "is_default": false
+    },
+    {
+      "id": 14,
+      "name": "Stereo Mix (Realtek HD Audio Stereo input)",
+      "channels": 2,
+      "default_samplerate": 48000.0,
+      "is_default": false
+    },
+    {
+      "id": 17,
+      "name": "PC Speaker (Realtek HD Audio output with HAP)",
+      "channels": 2,
+      "default_samplerate": 44100.0,
+      "is_default": false
+    },
+    {
+      "id": 18,
+      "name": "Microphone Array (Realtek HD Audio Mic Array input)",
+      "channels": 2,
+      "default_samplerate": 44100.0,
+      "is_default": false
+    }
+  ],
+  "scenarios": [
+    {
+      "prompt_id": "short_greeting",
+      "category": "Short Conversational Greeting",
+      "text": "Hello Saki, good morning.",
+      "total_audio_duration_sec": 3.207,
+      "actual_speech_duration_sec": 1.707,
+      "chunks_processed": 100,
+      "speech_chunks_detected": 45,
+      "total_processing_time_ms": 193.27,
+      "avg_chunk_latency_ms": 1.929,
+      "min_chunk_latency_ms": 0.678,
+      "max_chunk_latency_ms": 105.155,
+      "events_detected": [
+        {
+          "timestamp_sec": 0.608,
+          "event": {
+            "start": 9248
+          }
+        },
+        {
+          "timestamp_sec": 2.528,
+          "event": {
+            "end": 34272
+          }
+        }
+      ],
+      "cpu_percent": 0.0,
+      "memory_mb": 937.1
+    },
+    {
+      "prompt_id": "quick_query",
+      "category": "Quick Technical Query",
+      "text": "What is the status of our current project build?",
+      "total_audio_duration_sec": 3.932,
+      "actual_speech_duration_sec": 2.432,
+      "chunks_processed": 122,
+      "speech_chunks_detected": 72,
+      "total_processing_time_ms": 92.02,
+      "avg_chunk_latency_ms": 0.752,
+      "min_chunk_latency_ms": 0.676,
+      "max_chunk_latency_ms": 1.558,
+      "events_detected": [
+        {
+          "timestamp_sec": 0.512,
+          "event": {
+            "start": 7712
+          }
+        },
+        {
+          "timestamp_sec": 3.264,
+          "event": {
+            "end": 46048
+          }
+        }
+      ],
+      "cpu_percent": 0.0,
+      "memory_mb": 958.1
+    },
+    {
+      "prompt_id": "multi_sentence_query",
+      "category": "Multi-Sentence Detailed Utterance",
+      "text": "Can you check if the event system is connected properly and tell me how the state transitions work?",
+      "total_audio_duration_sec": 6.876,
+      "actual_speech_duration_sec": 5.376,
+      "chunks_processed": 214,
+      "speech_chunks_detected": 147,
+      "total_processing_time_ms": 186.33,
+      "avg_chunk_latency_ms": 0.867,
+      "min_chunk_latency_ms": 0.708,
+      "max_chunk_latency_ms": 1.531,
+      "events_detected": [
+        {
+          "timestamp_sec": 0.576,
+          "event": {
+            "start": 8736
+          }
+        },
+        {
+          "timestamp_sec": 6.208,
+          "event": {
+            "end": 93152
+          }
+        }
+      ],
+      "cpu_percent": 0.0,
+      "memory_mb": 1023.4
+    },
+    {
+      "prompt_id": "rapid_command",
+      "category": "Rapid Short Directive",
+      "text": "Run the tests right now.",
+      "total_audio_duration_sec": 2.929,
+      "actual_speech_duration_sec": 1.429,
+      "chunks_processed": 91,
+      "speech_chunks_detected": 40,
+      "total_processing_time_ms": 83.83,
+      "avg_chunk_latency_ms": 0.917,
+      "min_chunk_latency_ms": 0.686,
+      "max_chunk_latency_ms": 3.159,
+      "events_detected": [
+        {
+          "timestamp_sec": 0.544,
+          "event": {
+            "start": 8224
+          }
+        },
+        {
+          "timestamp_sec": 2.208,
+          "event": {
+            "end": 29152
+          }
+        }
+      ],
+      "cpu_percent": 0.0,
+      "memory_mb": 1023.5
+    }
+  ],
+  "timestamp": 1787158449.256506
+}

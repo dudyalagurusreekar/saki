@@ -1,8 +1,11 @@
+import os
+import base64
 import time
 import httpx
 import json
-from typing import Generator, Optional, List
+from typing import Generator, Optional, List, Union
 from backend.core.config import settings
+from backend.services.resource_manager import resource_manager, ResourceState
 from backend.services.model_manager import (
     model_manager,
     STATE_LOADING,
@@ -14,14 +17,36 @@ from backend.services.model_manager import (
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
 
+def _prepare_images(images: Optional[list]) -> Optional[List[str]]:
+    """Encodes file paths or bytes to base64 strings expected by Ollama /api/generate."""
+    if not images:
+        return None
+    encoded_images = []
+    for img in images:
+        if isinstance(img, str):
+            if os.path.exists(img):
+                try:
+                    with open(img, "rb") as f:
+                        encoded_images.append(base64.b64encode(f.read()).decode("utf-8"))
+                except Exception:
+                    pass
+            else:
+                encoded_images.append(img)
+        elif isinstance(img, bytes):
+            encoded_images.append(base64.b64encode(img).decode("utf-8"))
+    return encoded_images if encoded_images else None
+
+
 def call_model(
     prompt: str, 
     model: Optional[str] = None, 
     keep_alive: Optional[str] = None,
-    images: Optional[list] = None
+    images: Optional[list] = None,
+    _is_retry: bool = False
 ) -> str:
     """
-    Executes a single non-streaming completion call to an Ollama model with telemetry tracking.
+    Executes a single non-streaming completion call to an Ollama model with telemetry tracking,
+    ResourceManager concurrency protection, and automatic fallback resilience.
     """
     model = model or settings.MODEL_DEFAULT
     keep_alive = keep_alive if keep_alive is not None else settings.MODEL_KEEP_ALIVE_SESSION
@@ -33,49 +58,56 @@ def call_model(
         "keep_alive": keep_alive
     }
     
-    if images:
-        payload["images"] = images
+    prepared = _prepare_images(images)
+    if prepared:
+        payload["images"] = prepared
 
-    model_manager.set_model_state(model, STATE_LOADING)
-    start_time = time.time()
-
-    try:
-        model_manager.set_model_state(model, STATE_ACTIVE)
-        response = httpx.post(
-            OLLAMA_URL,
-            json=payload,
-            timeout=300.0
-        )
-        end_time = time.time()
-        latency_ms = (end_time - start_time) * 1000
-
-        if response.status_code == 200:
-            data = response.json()
-            reply_text = data.get("response", "").strip()
-            
-            # Extract real token counts from Ollama response if provided
-            input_tokens = data.get("prompt_eval_count", len(prompt.split()))
-            output_tokens = data.get("eval_count", len(reply_text.split()))
-            total_duration_s = max(0.001, end_time - start_time)
-            tok_per_sec = output_tokens / total_duration_s
-
-            model_manager.record_telemetry(
-                model=model,
-                mode="direct_call",
-                latency_ms=latency_ms,
-                first_token_latency=total_duration_s * 0.4,
-                tokens_per_second=tok_per_sec,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens
+    with resource_manager.acquire(model):
+        start_time = time.time()
+        try:
+            response = httpx.post(
+                OLLAMA_URL,
+                json=payload,
+                timeout=300.0
             )
-            model_manager.set_model_state(model, STATE_IDLE)
-            return reply_text
-        else:
-            model_manager.set_model_state(model, STATE_ERROR)
-            return f"Error: Ollama returned status code {response.status_code}"
-    except Exception as e:
-        model_manager.set_model_state(model, STATE_ERROR)
-        return f"Error calling Ollama API: {str(e)}"
+            end_time = time.time()
+            latency_ms = (end_time - start_time) * 1000
+
+            if response.status_code == 200:
+                data = response.json()
+                reply_text = data.get("response", "").strip()
+                
+                # Extract real token counts from Ollama response if provided
+                input_tokens = data.get("prompt_eval_count", len(prompt.split()))
+                output_tokens = data.get("eval_count", len(reply_text.split()))
+                total_duration_s = max(0.001, end_time - start_time)
+                tok_per_sec = output_tokens / total_duration_s
+
+                model_manager.record_telemetry(
+                    model=model,
+                    mode="direct_call",
+                    latency_ms=latency_ms,
+                    first_token_latency=total_duration_s * 0.4,
+                    tokens_per_second=tok_per_sec,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens
+                )
+                return reply_text
+            else:
+                resource_manager.set_component_state(model, ResourceState.ERROR, f"Status code {response.status_code}")
+                # Fallback to general model if specialist model returns error
+                if not _is_retry:
+                    fallback_model = model_manager.get_fallback_model(model)
+                    if fallback_model and fallback_model != model:
+                        return call_model(prompt, model=fallback_model, keep_alive=keep_alive, images=images, _is_retry=True)
+                return f"I'm experiencing a brief connection delay with my local model engine. Please try again in a moment."
+        except Exception as e:
+            resource_manager.set_component_state(model, ResourceState.ERROR, str(e))
+            if not _is_retry:
+                fallback_model = model_manager.get_fallback_model(model)
+                if fallback_model and fallback_model != model:
+                    return call_model(prompt, model=fallback_model, keep_alive=keep_alive, images=images, _is_retry=True)
+            return "I'm having a little trouble connecting to my local inference engine right now. Let me check my local services for a moment."
 
 
 def call_model_with(model: str, prompt: str, keep_alive: Optional[str] = None) -> str:
@@ -90,7 +122,8 @@ def stream_model(
     images: Optional[list] = None
 ) -> Generator[str, None, None]:
     """
-    Streams a completion from Ollama line-by-line with real first-token and tok/s telemetry.
+    Streams a completion from Ollama line-by-line with real first-token and tok/s telemetry
+    and ResourceManager concurrency protection.
     """
     model = model or settings.MODEL_DEFAULT
     keep_alive = keep_alive if keep_alive is not None else settings.MODEL_KEEP_ALIVE_SESSION
@@ -102,57 +135,56 @@ def stream_model(
         "keep_alive": keep_alive
     }
 
-    if images:
-        payload["images"] = images
+    prepared = _prepare_images(images)
+    if prepared:
+        payload["images"] = prepared
 
-    model_manager.set_model_state(model, STATE_LOADING)
-    start_time = time.time()
-    first_token_time: Optional[float] = None
-    output_tokens_count = 0
-    prompt_tokens_est = len(prompt.split())
+    with resource_manager.acquire(model):
+        start_time = time.time()
+        first_token_time: Optional[float] = None
+        output_tokens_count = 0
+        prompt_tokens_est = len(prompt.split())
 
-    try:
-        model_manager.set_model_state(model, STATE_ACTIVE)
-        with httpx.stream(
-            "POST",
-            OLLAMA_URL,
-            json=payload,
-            timeout=httpx.Timeout(timeout=300.0, connect=10.0)
-        ) as r:
-            for line in r.iter_lines():
-                if line:
-                    data = json.loads(line)
-                    chunk = data.get("response", "")
-                    if chunk:
-                        if first_token_time is None:
-                            first_token_time = time.time()
-                        output_tokens_count += len(chunk.split()) or 1
-                        yield chunk
+        try:
+            with httpx.stream(
+                "POST",
+                OLLAMA_URL,
+                json=payload,
+                timeout=httpx.Timeout(timeout=300.0, connect=10.0)
+            ) as r:
+                for line in r.iter_lines():
+                    if line:
+                        data = json.loads(line)
+                        chunk = data.get("response", "")
+                        if chunk:
+                            if first_token_time is None:
+                                first_token_time = time.time()
+                            output_tokens_count += len(chunk.split()) or 1
+                            yield chunk
 
-                    # If Ollama sent the final evaluation object in stream
-                    if data.get("done", False):
-                        final_prompt_tokens = data.get("prompt_eval_count", prompt_tokens_est)
-                        final_eval_tokens = data.get("eval_count", output_tokens_count)
-                        end_time = time.time()
-                        latency_ms = (end_time - start_time) * 1000
-                        first_tok_s = (first_token_time - start_time) if first_token_time else 0.5
-                        gen_duration = max(0.001, end_time - (first_token_time or start_time))
-                        tok_per_sec = final_eval_tokens / gen_duration
+                        # If Ollama sent the final evaluation object in stream
+                        if data.get("done", False):
+                            final_prompt_tokens = data.get("prompt_eval_count", prompt_tokens_est)
+                            final_eval_tokens = data.get("eval_count", output_tokens_count)
+                            end_time = time.time()
+                            latency_ms = (end_time - start_time) * 1000
+                            first_tok_s = (first_token_time - start_time) if first_token_time else 0.5
+                            gen_duration = max(0.001, end_time - (first_token_time or start_time))
+                            tok_per_sec = final_eval_tokens / gen_duration
 
-                        model_manager.record_telemetry(
-                            model=model,
-                            mode="streaming",
-                            latency_ms=latency_ms,
-                            first_token_latency=first_tok_s,
-                            tokens_per_second=tok_per_sec,
-                            input_tokens=final_prompt_tokens,
-                            output_tokens=final_eval_tokens
-                        )
+                            model_manager.record_telemetry(
+                                model=model,
+                                mode="streaming",
+                                latency_ms=latency_ms,
+                                first_token_latency=first_tok_s,
+                                tokens_per_second=tok_per_sec,
+                                input_tokens=final_prompt_tokens,
+                                output_tokens=final_eval_tokens
+                            )
 
-        model_manager.set_model_state(model, STATE_IDLE)
-    except Exception as e:
-        model_manager.set_model_state(model, STATE_ERROR)
-        yield f"Error in stream: {str(e)}"
+        except Exception as e:
+            resource_manager.set_component_state(model, ResourceState.ERROR, str(e))
+            yield f"Error in stream: {str(e)}"
 
 
 def unload_model(model_name: str) -> bool:

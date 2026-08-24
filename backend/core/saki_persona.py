@@ -179,11 +179,15 @@ def build_saki_system_prompt(
     active_project: Optional[str] = None,
     memory_context: str = "",
     history_context: str = "",
-    emotional_guidance: str = ""
+    emotional_guidance: str = "",
+    language: str = "en",
+    is_mixed: bool = False,
+    is_voice_mode: bool = False
 ) -> str:
     """
     Constructs the unified Saki system prompt with persona, mode directive,
-    social energy modulation, memory context, and conversational habits.
+    social energy modulation, memory context, multilingual directives, conversational habits,
+    and voice-mode adaptations.
     """
     mode_info = CONVERSATIONAL_MODES.get(mode, CONVERSATIONAL_MODES["casual"])
     social_energy_str = format_social_energy(energy, warmth, playfulness, seriousness)
@@ -198,6 +202,15 @@ def build_saki_system_prompt(
         f"\nCurrent Mode: {mode_info['title']}\n{mode_info['directive']}"
     ]
     
+    if is_voice_mode:
+        sections.append(
+            "\nVOICE CONVERSATION DIRECTIVE:\n"
+            "- You are speaking directly with the user in live real-time voice mode.\n"
+            "- Keep your response speakable, natural, and conversational.\n"
+            "- Avoid markdown formatting, ascii diagrams, or lengthy code blocks that are awkward to read out loud.\n"
+            "- For coding or technical requests, summarize the solution clearly in spoken words."
+        )
+
     if social_energy_str:
         sections.append(f"\n{social_energy_str}")
         
@@ -212,6 +225,57 @@ def build_saki_system_prompt(
         
     if history_context and history_context.strip():
         sections.append(f"\n{history_context.strip()}")
+
+    # Multilingual Directives (Sprint 18 & 19)
+    if language == "te":
+        sections.append(
+            "\nMULTILINGUAL DIRECTIVE (Telugu / తెలుగు):\n"
+            "- The user is interacting in Telugu (or Romanized Telugu). You MUST generate your response in authentic, natural, conversational Telugu (తెలుగు).\n"
+            "- For greetings and friendly inquiries (e.g. 'namaskaram', 'ela unnavu', 'project ela undi'), reply warmly in Telugu (e.g. 'నమస్కారం! నేను బాగున్నాను. మీరు ఎలా ఉన్నారు? 😊').\n"
+            "- Keep programming code, technical terms, framework names (e.g. Python, FastAPI, React), and natural English loanwords in English without awkward literal translation.\n"
+            "- Preserve Saki's unified companionable, empathetic, and intelligent identity."
+        )
+    elif language == "kn":
+        sections.append(
+            "\nMULTILINGUAL DIRECTIVE (Kannada / ಕನ್ನಡ):\n"
+            "- The user is interacting in Kannada (or Romanized Kannada). You MUST generate your response in authentic, natural, conversational Kannada (ಕನ್ನಡ).\n"
+            "- For greetings and friendly inquiries, reply warmly in Kannada (e.g. 'ನಮಸ್ಕಾರ! ನಾನು ಚೆನ್ನಾಗಿದ್ದೇನೆ. ನೀವು ಹೇಗಿದ್ದೀರಾ? 😊').\n"
+            "- Keep programming code, technical terms, framework names (e.g. Python, FastAPI, React), and natural English loanwords in English without awkward literal translation.\n"
+            "- Preserve Saki's unified companionable, empathetic, and intelligent identity."
+        )
         
     sections.append("\nFINAL INSTRUCTION: Respond directly as Saki to the user's latest message with clean, comfortable formatting. Output ONLY your direct response.")
     return "\n".join(sections)
+
+
+def format_prompt_for_model(model: str, system_prompt: str, user_input: str) -> str:
+    """
+    Applies the model-native conversation template for optimal instruction adherence and intelligence:
+    - Phi-3: <|system|>\n...<|end|>\n<|user|>\n...<|end|>\n<|assistant|>\n
+    - Qwen 2.5 / Qwen 3 / Qwen Coder: ChatML (<|im_start|>system...<|im_end|><|im_start|>user...<|im_start|>assistant)
+    - Nous Hermes 2: ChatML (<|im_start|>system...<|im_end|><|im_start|>user...<|im_start|>assistant)
+    - Gemma 3: <start_of_turn>user\n...<end_of_turn>\n<start_of_turn>model\n
+    """
+    model_lower = (model or "").lower()
+    
+    if "phi" in model_lower:
+        return (
+            f"<|system|>\n{system_prompt}<|end|>\n"
+            f"<|user|>\n{user_input}<|end|>\n"
+            f"<|assistant|>\n"
+        )
+
+    if "nous-hermes" in model_lower or "hermes" in model_lower or "qwen" in model_lower or "coder" in model_lower:
+        return (
+            f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
+            f"<|im_start|>user\n{user_input}<|im_end|>\n"
+            f"<|im_start|>assistant\n"
+        )
+
+    if "gemma" in model_lower:
+        return (
+            f"<start_of_turn>user\n{system_prompt}\n\n{user_input}<end_of_turn>\n"
+            f"<start_of_turn>model\n"
+        )
+    
+    return f"{system_prompt}\n\nUser: {user_input}\nSaki:"

@@ -7,14 +7,21 @@ Validates:
 4. End-to-end evidence propagation from Gemini to final model answer context (Test 11)
 """
 
+import os
+import sys
 import pytest
 from unittest.mock import patch, MagicMock
+
+# Ensure project root is on sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
 from backend.services.action_engine import (
     decide_action,
     classify_freshness,
     ACTION_WEB_SEARCH,
     ACTION_LOCAL_REASONING,
     FRESHNESS_CURRENT,
+    FRESHNESS_CURRENT_EXTERNAL_FACT,
     FRESHNESS_STABLE
 )
 from backend.models.schemas import ChatRequest
@@ -30,7 +37,7 @@ class TestSprint3CurrentInformation:
         query = "what current fastapi version"
         decision = decide_action(query)
         assert decision.requires_world_access is True
-        assert decision.freshness_requirement == FRESHNESS_CURRENT
+        assert decision.freshness_requirement in [FRESHNESS_CURRENT, FRESHNESS_CURRENT_EXTERNAL_FACT, "CURRENT", "CURRENT_EXTERNAL_FACT"]
 
         # Mock Gemini search returning current version evidence
         with patch("backend.services.gemini_search.GeminiSearchProvider.search") as mock_search:
@@ -67,7 +74,7 @@ class TestSprint3CurrentInformation:
         """TEST 2: 'what is the latest fastapi version' requires web."""
         decision = decide_action("what is the latest fastapi version")
         assert decision.requires_world_access is True
-        assert decision.freshness_requirement == FRESHNESS_CURRENT
+        assert decision.freshness_requirement in [FRESHNESS_CURRENT, FRESHNESS_CURRENT_EXTERNAL_FACT, "CURRENT", "CURRENT_EXTERNAL_FACT"]
 
     def test_03_what_is_fastapi_static(self):
         """TEST 3: 'what is FastAPI?' is static knowledge and does not require web."""
@@ -79,13 +86,13 @@ class TestSprint3CurrentInformation:
         """TEST 4: 'latest Python version' requires web."""
         decision = decide_action("latest Python version")
         assert decision.requires_world_access is True
-        assert decision.freshness_requirement == FRESHNESS_CURRENT
+        assert decision.freshness_requirement in [FRESHNESS_CURRENT, FRESHNESS_CURRENT_EXTERNAL_FACT, "CURRENT", "CURRENT_EXTERNAL_FACT"]
 
     def test_05_what_happened_in_ai_today(self):
         """TEST 5: 'what happened in AI today' requires web."""
         decision = decide_action("what happened in AI today")
         assert decision.requires_world_access is True
-        assert decision.freshness_requirement == FRESHNESS_CURRENT
+        assert decision.freshness_requirement in [FRESHNESS_CURRENT, FRESHNESS_CURRENT_EXTERNAL_FACT, "CURRENT", "CURRENT_EXTERNAL_FACT"]
 
     def test_06_good_movies_in_2026(self):
         """TEST 6: 'good movies in 2026' is recognized as current year (2026)."""

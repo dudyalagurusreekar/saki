@@ -56,7 +56,7 @@ def test_duplicate_query_prevention():
 # -------------------------
 def test_privacy_gate_blocks_secret_research_query():
     # Research prompt containing API Key should be blocked by Privacy Boundary
-    res = ResearchPlanner.execute_research("Research AIzaSyBJej43jDBLEVqbjp4GH6UfSRktBl6hrnc API key details")
+    res = ResearchPlanner.execute_research("Research AIzaSy_FAKE_API_KEY_DO_NOT_USE_01234567 API key details")
     assert res.stop_reason == STOP_PRIVACY_BLOCKED or res.searches_performed == 0
 
 

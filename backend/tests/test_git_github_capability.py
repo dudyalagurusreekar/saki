@@ -42,7 +42,7 @@ def test_protected_branch_push_requires_confirmation():
 # SECRET SCANNING COMMIT GUARD TESTS
 # -------------------------
 def test_secret_scanning_blocks_commit_with_key():
-    staged_with_key = 'API_KEY = "AIzaSyBJej43jDBLEVqbjp4GH6UfSRktBl6hrnc"'
+    staged_with_key = 'API_KEY = "AIzaSy_FAKE_API_KEY_DO_NOT_USE_01234567"'
     success, msg = GitCapability.create_commit("feat: add key", staged_content=staged_with_key)
     
     assert success is False

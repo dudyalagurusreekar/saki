@@ -13,3 +13,11 @@ google-generativeai
 SpeechRecognition
 pytest
 python-dotenv
+faster-whisper
+kokoro-onnx
+sounddevice
+silero-vad
+soundfile
+numpy
+onnxruntime
+
